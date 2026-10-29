@@ -218,3 +218,44 @@ textarea.f-in { resize: vertical; min-height: 70px; }
 .cls-fila.puesta { background: #262140; }
 .cls-fila.puesta i { color: #7ee2a8; }
 .cls-nueva code { color: #7ee2a8; }
+
+/* ---------- Visor de código y tutores ---------- */
+.gjs-mdl-dialog.cod-dialog { max-width: 1100px; width: 94vw; }
+.cod-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid #3a4049; margin: -4px 0 10px; }
+.cod-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; color: #b6bdc9; padding: 8px 12px;
+  cursor: pointer; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+.cod-tab:hover { color: #fff; }
+.cod-tab.active { color: #fff; border-bottom-color: #7c5cff; }
+.cod-tab.tutor i { color: #ffcf5a; }
+.cod-pane { display: none; }
+.cod-pane.active { display: block; }
+.cod-barra { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; color: #8c95a3; font-size: 12px; }
+.cod-editor .CodeMirror { height: 62vh; border-radius: 6px; font-size: 12.5px; }
+.tut { max-height: 66vh; overflow: auto; padding-right: 6px; line-height: 1.55; color: #cfd5de; font-size: 13px; }
+.tut code { background: #1f2329; color: #ffcf8a; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.tut b, .tut strong { color: #fff; }
+.tut-intro { margin: 0 0 12px; }
+.tut-sub { margin: 18px 0 8px; color: #fff; font-size: 14px; }
+.tut-card { background: #232830; border: 1px solid #3a4049; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+.tut-card.apagada { opacity: .7; }
+.tut-card p { margin: 6px 0; }
+.tut-h { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-weight: 600; color: #fff; margin-bottom: 4px; }
+.tut-tag { flex: none; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 10px; background: #3a4049; color: #b6bdc9; }
+.tut-tag.si { background: #1f6f4a; color: #d4ffe9; }
+.tut-concepto { color: #a08bff; font-size: 12px; }
+.tut-consejo { background: #2f2a4a; border-radius: 6px; padding: 8px 10px; }
+.tut-consejo i { color: #ffcf5a; }
+.tut-lista { margin: 6px 0; padding-left: 20px; }
+.tut-lista li { margin: 3px 0; }
+.tut-n { color: #8c95a3; font-size: 11px; }
+.tut-mq { border-left: 3px solid #7c5cff; padding: 4px 0 4px 10px; margin: 8px 0; }
+.tut-mq p { margin: 4px 0; }
+.tut-mas summary { cursor: pointer; color: #b6bdc9; margin: 6px 0 10px; }
+.tut-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; color: #8c95a3; }
+.tut-btns .tb-btn { border-color: #3a4049; }
+.tut-tabla { border-collapse: collapse; margin: 8px 0; font-size: 12.5px; }
+.tut-tabla th, .tut-tabla td { border: 1px solid #3a4049; padding: 4px 10px; text-align: left; }
+.tut-tabla th { background: #1f2329; color: #fff; }
+.cod-pre { background: #15181d; border: 1px solid #3a4049; border-radius: 6px; padding: 10px 12px; margin: 8px 0; overflow-x: auto;
+  font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.5; }
+.cod-pre code { background: none; color: #dfe3ea; padding: 0; white-space: pre; }

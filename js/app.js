@@ -48,7 +48,7 @@ $('#btn-preview').onclick = () => vistaPrevia(!document.body.classList.contains(
 $('#preview-exit').onclick = () => vistaPrevia(false);
 
 // Código
-$('#btn-code').onclick = () => editor.runCommand('export-template');
+$('#btn-code').onclick = abrirCodigo;
 
 // Importar HTML
 $('#btn-import').onclick = () => {
