@@ -52,8 +52,9 @@ function tiposPropios(ed) {
         tagName: 'video',
         droppable: false,
         attributes: { autoplay: true, muted: true, loop: true, playsinline: true },
+        // El enlace del video se cambia solo en el recuadro «Video de fondo»
+        // (un campo src aquí no sabría convertir YouTube/Vimeo a <iframe>)
         traits: [
-          { type: 'text', name: 'src', label: 'URL del video (mp4)' },
           { type: 'text', name: 'poster', label: 'Imagen de portada (poster)' }
         ]
       }
@@ -775,16 +776,32 @@ function ponerVideoFondo(c, src) {
   const { class: clase, id } = c.getAttributes();
   const base = { type: 'video-fondo', attributes: { class: clase || 'hero-video', ...(id ? { id } : {}) } };
   if (v.provider === 'so') {
-    if (!esIframe) { c.addAttributes({ src }); return c; }
+    // Sin src (video quitado) queda el <video> vacío: se ve la imagen de fondo de la sección
+    const conSrc = src ? { src } : {};
+    if (!esIframe) {
+      if (src) c.addAttributes(conSrc);
+      else { c.removeAttributes('src'); const el = c.getEl(); if (el) { el.removeAttribute('src'); el.load && el.load(); } }
+      return c;
+    }
     return c.replaceWith({ ...base, tagName: 'video',
-      attributes: { ...base.attributes, src, autoplay: true, muted: true, loop: true, playsinline: true } })[0];
+      attributes: { ...base.attributes, ...conSrc, autoplay: true, muted: true, loop: true, playsinline: true } })[0];
   }
   const attrs = { ...base.attributes, src: urlFondo(v), title: 'Video de fondo', frameborder: '0',
     allow: 'autoplay; fullscreen; picture-in-picture', tabindex: '-1', 'aria-hidden': 'true' };
   if (esIframe) { c.setAttributes(attrs); return c; }
   return c.replaceWith({ ...base, tagName: 'iframe', attributes: attrs })[0];
 }
+// El bloque de video de GrapesJS trae campos «provider», «videoId» y «src» en
+// Propiedades; pegar un enlace ahí no funciona, así que se quitan y el enlace
+// se cambia solo en el recuadro «Video». El resto de campos va en español.
+const ETIQUETAS_VIDEO = { autoplay: 'Reproducir solo', loop: 'Repetir', muted: 'Sin sonido', controls: 'Mostrar controles', color: 'Color del reproductor', rel: 'Videos relacionados', modestbranding: 'Logo discreto', poster: 'Imagen de portada' };
+function limpiarTraitsVideo(c) {
+  if (!c || !c.is || !c.is('video')) return;
+  c.removeTrait(['provider', 'videoId', 'src']);
+  c.getTraits().forEach(t => { const e = ETIQUETAS_VIDEO[t.get('name')]; if (e) t.set('label', e); });
+}
 // Pone un video (data: o URL) en un componente de video o de video de fondo.
+// Con src vacío, quita el video.
 // data-archivo guarda el nombre original para la carpeta assets (no se exporta).
 function ponerVideo(c, src, nombre) {
   if (c.is('video-fondo')) {
@@ -792,7 +809,13 @@ function ponerVideo(c, src, nombre) {
     c = ponerVideoFondo(c, src);
     if (eraSeleccionado) editor.select(c);
   }
-  else c.set(src.startsWith('data:') ? { provider: 'so', src } : analizarVideo(src));
+  else {
+    c.set(!src ? { provider: 'so', src: '' } : src.startsWith('data:') ? { provider: 'so', src } : analizarVideo(src));
+    // Al cambiar de proveedor GrapesJS rehace los campos de Propiedades:
+    // se vuelve a seleccionar para que se apliquen los ajustes de siempre.
+    if (editor.getSelected() === c) { editor.select(null); editor.select(c); }
+    else limpiarTraitsVideo(c);
+  }
   if (nombre) c.addAttributes({ 'data-archivo': nombre });
   else c.removeAttributes('data-archivo');
 }
@@ -820,17 +843,27 @@ function ponerVideo(c, src, nombre) {
     url.value = c.is('video') && c.get('provider') !== 'so' ? (c.getSrcResult ? c.getSrcResult() : '') : sinData(src);
     info.innerHTML = src ? origenDe(src, c.getAttributes()['data-archivo']) : '';
   };
+  editor.on('component:selected', limpiarTraitsVideo);
   editor.on('component:selected component:deselected', mostrar);
+  const quitar = () => {
+    const c = objetivo();
+    if (!c) return;
+    ponerVideo(c, '');
+    mostrar();
+    toast('Video quitado');
+  };
   const aplicar = () => {
     const c = objetivo();
     const v = url.value.trim();
-    if (!c || !v) return;
+    if (!c) return;
+    if (!v) { quitar(); return; }
     if (!esURL(v)) { toast('El enlace debe empezar con http:// o https://'); return; }
     ponerVideo(c, v);
     mostrar();
     toast('Video actualizado');
   };
   $('#video-apply').onclick = aplicar;
+  $('#video-quitar').onclick = quitar;
   url.addEventListener('keydown', (e) => { if (e.key === 'Enter') aplicar(); });
   $('#video-subir').onclick = () => {
     const c = objetivo();
