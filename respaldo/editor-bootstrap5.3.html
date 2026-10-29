@@ -1,0 +1,2783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor Bootstrap 5</title>
+
+  <!-- ===================================================================
+       Dependencias con versión fija.
+       NUNCA quitar el número de versión: sin él se carga siempre la última
+       publicada, y un cambio incompatible de GrapesJS rompe el editor para
+       todo el curso el mismo día, sin haber tocado este archivo.
+
+       Para que el editor funcione sin internet (laboratorio), descarga estos
+       cinco archivos a una carpeta ./vendor/ y reemplaza las URLs por rutas
+       locales. No hace falta cambiar nada más.
+  ==================================================================== -->
+  <link rel="stylesheet" href="https://unpkg.com/grapesjs@0.23.6/dist/css/grapes.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <script src="https://unpkg.com/grapesjs@0.23.6"></script>
+  <script src="https://unpkg.com/grapesjs-plugin-forms@2.0.6"></script>
+  <script src="https://unpkg.com/grapesjs-custom-code@1.0.2"></script>
+  <script src="https://unpkg.com/grapesjs-parser-postcss@1.0.3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --gjs-primary-color: #2b3038;
+      --gjs-secondary-color: #dfe3ea;
+      --gjs-tertiary-color: #7c5cff;
+      --gjs-quaternary-color: #a08bff;
+      --gjs-font-size: 12px;
+    }
+    html, body { margin: 0; height: 100%; background: #1f2329; color: #dfe3ea;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 13px; }
+
+    /* ---------- Layout ---------- */
+    .app { display: grid; grid-template-columns: 270px minmax(0, 1fr) 290px;
+      grid-template-rows: 46px minmax(0, 1fr); height: 100vh; }
+    .topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 2px; padding: 0 10px;
+      background: #15181d; border-bottom: 1px solid #000; overflow-x: auto; }
+    .brand { font-weight: 700; color: #fff; display: flex; gap: 8px; align-items: center; margin-right: 10px; white-space: nowrap; }
+    .brand i { color: #a08bff; font-size: 18px; }
+    .sep { width: 1px; height: 22px; background: #3a4049; margin: 0 8px; flex: none; }
+    .grow { flex: 1; }
+    .tb-btn { background: transparent; border: 1px solid transparent; color: #cfd5de; padding: 6px 9px;
+      border-radius: 6px; cursor: pointer; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+    .tb-btn:hover { background: #2a2f37; }
+    .tb-btn.active { background: #3b3f52; color: #fff; border-color: #7c5cff; }
+    .tb-btn.primary { background: #7c5cff; color: #fff; }
+    .tb-btn.primary:hover { background: #6a49f0; }
+    .tb-btn.danger { color: #ff9a9a; border-color: #5c3134; }
+    .tb-btn.danger:hover { background: #4a2326; color: #ffd0d0; }
+
+    .side { background: #2b3038; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+    .left { border-right: 1px solid #000; }
+    .right { border-left: 1px solid #000; color: #dfe3ea; }
+    .tabs { display: flex; background: #22262c; border-bottom: 1px solid #000; flex: none; }
+    .tabs button { flex: 1; background: none; border: 0; color: #9aa3b0; padding: 11px 4px; cursor: pointer;
+      font-size: 12px; border-bottom: 2px solid transparent; }
+    .tabs button:hover { color: #fff; }
+    .tabs button.active { color: #fff; border-bottom-color: #a08bff; }
+    .pane { display: none; flex: 1; min-height: 0; overflow-y: auto; }
+    .pane.active { display: block; }
+
+    #gjs { position: relative; min-width: 0; overflow: hidden; }
+    .gjs-cv-canvas { width: 100% !important; height: 100% !important; top: 0 !important; left: 0 !important; }
+    .gjs-editor-cont { border: 0; }
+
+    /* ---------- Bloques ---------- */
+    .search { padding: 10px; position: sticky; top: 0; background: #2b3038; z-index: 2; border-bottom: 1px solid #000; }
+    .search input { width: 100%; padding: 7px 9px; border-radius: 6px; border: 1px solid #3a4049;
+      background: #1f2329; color: #dfe3ea; outline: none; }
+    .search input:focus { border-color: #7c5cff; }
+    #blocks .gjs-block { width: calc(50% - 10px); min-height: 78px; margin: 5px; padding: .5em;
+      border: 1px solid #3a4049; border-radius: 6px; box-shadow: none; background: #232830; color: #dfe3ea; }
+    #blocks .gjs-block:hover { border-color: #a08bff; box-shadow: none; }
+    #blocks .gjs-block__media { font-size: 24px; line-height: 1; margin-bottom: 6px; }
+    #blocks .gjs-block-label { font-size: 11px; line-height: 1.2; }
+    #blocks .gjs-block-category .gjs-title { background: #22262c; color: #dfe3ea; font-weight: 600;
+      border-bottom: 1px solid #000; padding: 10px; }
+    #blocks .gjs-blocks-c { padding: 4px; }
+
+    /* ---------- Páginas ---------- */
+    .pages-wrap { padding: 10px; }
+    .page-row { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 6px;
+      background: #232830; border: 1px solid #3a4049; margin-bottom: 6px; cursor: pointer; }
+    .page-row.active { border-color: #a08bff; background: #2f2a4a; }
+    .page-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .page-row button { background: none; border: 0; color: #9aa3b0; cursor: pointer; padding: 2px 4px; }
+    .page-row button:hover { color: #fff; }
+    .hint { color: #8c95a3; font-size: 11px; margin: 8px 2px; line-height: 1.4; }
+
+    /* ---------- Panel derecho ---------- */
+    #selectors { padding: 8px 10px; border-bottom: 1px solid #000; }
+    #traits { padding: 6px 4px; }
+
+    /* ---------- Modo vista previa ---------- */
+    .is-preview .app { grid-template-columns: minmax(0, 1fr); }
+    .is-preview .left, .is-preview .right { display: none; }
+
+    /* ---------- Cajas auxiliares del panel derecho ---------- */
+    .ov { padding: 10px; border-bottom: 1px solid #000; background: #2b3038; }
+    .ov-title { font-weight: 600; margin-bottom: 8px; display: flex; gap: 6px; align-items: center; }
+    .ov-row { display: flex; align-items: center; gap: 8px; }
+    .ov-row input[type=color] { width: 36px; height: 28px; padding: 0; border: 1px solid #3a4049; background: none; border-radius: 4px; cursor: pointer; }
+    .ov-row input[type=range] { flex: 1; accent-color: #a08bff; }
+    .ov-row span { min-width: 36px; text-align: right; }
+    .ov-file { width: 100%; color: #dfe3ea; }
+    .ov-text { flex: 1; min-width: 0; background: #1f2329; color: #dfe3ea; border: 1px solid #3a4049; border-radius: 4px; padding: 6px 8px; font-size: 12px; }
+    .ov-text:focus { outline: none; border-color: #a08bff; }
+    .ov .hint { margin: 8px 0 0; }
+    .ov + .ov { border-top: 0; }
+
+    /* ---------- Selector de color (spectrum) ---------- */
+    html, body { overflow: hidden; }
+    .bp { color: #a08bff; font-size: 12px; margin-left: 8px; white-space: nowrap; min-width: 92px; }
+    .sp-container { z-index: 999999 !important; }
+    .sp-replacer, .gjs-field-colorp-c { cursor: pointer; }
+
+    /* ---------- Varios ---------- */
+    .app-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #7c5cff;
+      color: #fff; padding: 10px 18px; border-radius: 8px; z-index: 99999; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+    .imp-ta { width: 100%; height: 320px; background: #1f2329; color: #dfe3ea; border: 1px solid #3a4049;
+      border-radius: 6px; padding: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    .imp-hint { margin: 0 0 8px; color: #b6bdc9; }
+    .plantilla { display: flex; gap: 14px; align-items: flex-start; padding: 14px; margin: 10px 0; border: 1px solid #3a4049;
+      border-radius: 8px; cursor: pointer; background: #232830; }
+    .plantilla:hover { border-color: #a08bff; }
+    .plantilla i { font-size: 26px; color: #a08bff; }
+    .plantilla b { display: block; color: #fff; margin-bottom: 4px; }
+    .plantilla span { color: #b6bdc9; font-size: 12px; line-height: 1.4; }
+
+    /* ---------- Panel «Sitio»: identidad visual ---------- */
+    .t-lbl { display: block; font-size: 11px; color: #9aa3b0; margin: 12px 0 5px; letter-spacing: .03em; }
+    .t-lbl:first-of-type { margin-top: 4px; }
+    .t-lbl b { color: #dfe3ea; font-weight: 600; font-variant-numeric: tabular-nums; }
+    select.ov-text { appearance: none; background-image: none; cursor: pointer; }
+    select.ov-text option { background: #1f2329; color: #dfe3ea; }
+    .t-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 4px; }
+    .t-preset { display: flex; align-items: center; gap: 7px; padding: 7px 8px; border-radius: 6px; cursor: pointer;
+      background: #232830; border: 1px solid #3a4049; color: #cfd5de; font-size: 11.5px; text-align: left; }
+    .t-preset:hover { border-color: #a08bff; }
+    .t-preset .mu { display: flex; flex: none; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+    .t-preset .mu i { width: 9px; height: 18px; display: block; }
+    .t-check { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: #dfe3ea; line-height: 1.45; cursor: pointer; }
+    .t-check input { margin: 2px 0 0; accent-color: #7c5cff; flex: none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- ===== Barra superior ===== -->
+    <header class="topbar">
+      <div class="brand"><i class="bi bi-bootstrap-fill"></i> Editor Bootstrap 5</div>
+      <button class="tb-btn danger" id="btn-new" title="Borrar todo y volver al estado inicial"><i class="bi bi-trash3"></i> Resetear</button>
+      <button class="tb-btn" id="btn-open" title="Abrir proyecto (.json)"><i class="bi bi-folder2-open"></i></button>
+      <button class="tb-btn" id="btn-save" title="Guardar proyecto (.json)"><i class="bi bi-save"></i></button>
+      <span class="sep"></span>
+      <button class="tb-btn" id="btn-undo" title="Deshacer (Ctrl+Z)"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button class="tb-btn" id="btn-redo" title="Rehacer (Ctrl+Y)"><i class="bi bi-arrow-clockwise"></i></button>
+      <span class="sep"></span>
+      <button class="tb-btn active" data-device="desktop" title="Escritorio"><i class="bi bi-display"></i></button>
+      <button class="tb-btn" data-device="tablet" title="Tablet (≤ 991px)"><i class="bi bi-tablet"></i></button>
+      <button class="tb-btn" data-device="mobile" title="Móvil (≤ 575px)"><i class="bi bi-phone"></i></button>
+      <span class="bp" id="bp-info" title="Ancho del lienzo y punto de corte de Bootstrap (xs, sm, md, lg, xl, xxl)">—</span>
+      <span class="sep"></span>
+      <button class="tb-btn" id="btn-borders" title="Mostrar bordes de los componentes"><i class="bi bi-bounding-box"></i></button>
+      <button class="tb-btn" id="btn-preview" title="Vista previa"><i class="bi bi-eye"></i> Vista previa</button>
+      <button class="tb-btn" id="btn-code" title="Ver código HTML/CSS"><i class="bi bi-code-slash"></i> Código</button>
+      <button class="tb-btn" id="btn-templates" title="Plantillas de sitio"><i class="bi bi-stars"></i> Plantillas</button>
+      <button class="tb-btn" id="btn-import" title="Importar HTML"><i class="bi bi-box-arrow-in-down"></i> Importar</button>
+      <span class="grow"></span>
+      <button class="tb-btn primary" id="btn-export" title="Exportar el sitio completo en ZIP"><i class="bi bi-download"></i> Exportar sitio (ZIP)</button>
+    </header>
+
+    <!-- ===== Panel izquierdo ===== -->
+    <aside class="side left">
+      <div class="tabs" data-group="left">
+        <button class="active" data-tab="blocks"><i class="bi bi-plus-square"></i> Componentes</button>
+        <button data-tab="layers"><i class="bi bi-layers"></i> Capas</button>
+        <button data-tab="pages"><i class="bi bi-files"></i> Páginas</button>
+        <button data-tab="sitio"><i class="bi bi-palette2"></i> Sitio</button>
+      </div>
+      <div class="pane active" data-group="left" data-pane="blocks">
+        <div class="search"><input id="q" type="search" placeholder="Buscar componente…"></div>
+        <div id="blocks"></div>
+      </div>
+      <div class="pane" data-group="left" data-pane="layers"><div id="layers"></div></div>
+      <div class="pane" data-group="left" data-pane="pages">
+        <div class="pages-wrap">
+          <div id="pages"></div>
+          <button class="tb-btn primary" id="add-page" style="width:100%;justify-content:center"><i class="bi bi-plus-lg"></i> Nueva página</button>
+          <p class="hint">La primera página se exporta como <b>index.html</b>. Para enlazar páginas, usa en el enlace el nombre del archivo, por ejemplo <b>contacto.html</b>.</p>
+
+          <div class="ov" style="margin:14px -10px 0;border-bottom:0">
+            <div class="ov-title"><i class="bi bi-layout-text-window-reverse"></i> Partes comunes</div>
+            <p class="hint" style="margin:0 0 10px">Toma el menú o el pie de <b>esta</b> página y lo copia en todas las demás, reemplazando el que tengan. Las páginas nuevas los heredan solas.</p>
+            <button class="tb-btn" id="sync-nav" style="width:100%;justify-content:center;margin-bottom:6px"><i class="bi bi-menu-up"></i> Aplicar menú a todas</button>
+            <button class="tb-btn" id="sync-pie" style="width:100%;justify-content:center"><i class="bi bi-window-dock"></i> Aplicar pie a todas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Identidad visual y ajustes del sitio ===== -->
+      <div class="pane" data-group="left" data-pane="sitio">
+        <div class="ov">
+          <div class="ov-title"><i class="bi bi-palette2"></i> Identidad visual</div>
+          <p class="hint" style="margin:0 0 10px">Cambia el aspecto de <b>todo el sitio</b> a la vez. Son las variables de <b>css/site.css</b>: un solo valor repercute en botones, títulos, fondos y tarjetas.</p>
+          <div class="t-presets" id="t-presets"></div>
+
+          <label class="t-lbl">Color principal</label>
+          <div class="ov-row"><input type="color" id="t-primario"><input type="text" class="ov-text" id="t-primario-x" spellcheck="false"></div>
+
+          <label class="t-lbl">Color oscuro (fondos y pie)</label>
+          <div class="ov-row"><input type="color" id="t-osc"><input type="text" class="ov-text" id="t-osc-x" spellcheck="false"></div>
+
+          <label class="t-lbl">Color claro (secciones alternas)</label>
+          <div class="ov-row"><input type="color" id="t-claro"><input type="text" class="ov-text" id="t-claro-x" spellcheck="false"></div>
+
+          <label class="t-lbl">Color de acento (antetítulos y cifras)</label>
+          <div class="ov-row"><input type="color" id="t-acento"><input type="text" class="ov-text" id="t-acento-x" spellcheck="false"></div>
+
+          <label class="t-lbl">Fondo de la página</label>
+          <div class="ov-row"><input type="color" id="t-fondo"><input type="text" class="ov-text" id="t-fondo-x" spellcheck="false"></div>
+          <p class="hint" style="margin:5px 0 0">Cámbialo aquí, no seleccionando el cuerpo de la página en el lienzo: así queda guardado en <b>site.css</b> y se aplica a todas las páginas.</p>
+
+          <label class="t-lbl">Tipografía de títulos</label>
+          <select class="ov-text" id="t-titulos"></select>
+
+          <label class="t-lbl">Tipografía de texto</label>
+          <select class="ov-text" id="t-texto"></select>
+
+          <label class="t-lbl">Redondeo de esquinas · <b id="t-radio-v">16 px</b></label>
+          <input type="range" id="t-radio" min="0" max="28" step="2" style="width:100%;accent-color:#a08bff">
+
+          <button class="tb-btn" id="t-reset" style="margin-top:14px;width:100%;justify-content:center"><i class="bi bi-arrow-counterclockwise"></i> Restablecer identidad</button>
+        </div>
+
+        <div class="ov">
+          <div class="ov-title"><i class="bi bi-box-seam"></i> Exportación</div>
+          <label class="t-check">
+            <input type="checkbox" id="t-bs-local">
+            <span>Incluir Bootstrap e iconos dentro del ZIP</span>
+          </label>
+          <p class="hint">Activado, el sitio exportado no depende de ningún CDN: Bootstrap, los iconos y sus tipografías quedan en las carpetas css y js. Las tipografías de Google se siguen pidiendo a internet y, sin conexión, caen a las de respaldo. Desactivado, el ZIP pesa unos 400 KB menos.</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== Lienzo ===== -->
+    <main id="gjs"></main>
+
+    <!-- ===== Panel derecho ===== -->
+    <aside class="side right">
+      <div class="tabs" data-group="right">
+        <button class="active" data-tab="style"><i class="bi bi-palette"></i> Estilo</button>
+        <button data-tab="traits"><i class="bi bi-gear"></i> Propiedades</button>
+      </div>
+      <div class="pane active" data-group="right" data-pane="style">
+        <div class="ov" id="overlay-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-layers-half"></i> Capa de color sobre el fondo</div>
+          <div class="ov-row">
+            <input type="color" id="ov-color" value="#000000" title="Color de la capa">
+            <input type="range" id="ov-op" min="0" max="100" value="0" title="Opacidad de la capa">
+            <span id="ov-val">0%</span>
+            <button class="tb-btn" id="ov-clear" title="Quitar la capa"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <p class="hint">Oscurece o tiñe la imagen de fondo del elemento seleccionado sin afectar su texto. Reemplaza la sombra interior (box-shadow) del elemento.</p>
+        </div>
+        <div class="ov" id="bg-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-image"></i> Imagen de fondo (URL)</div>
+          <div class="ov-row">
+            <input type="url" id="bg-url" class="ov-text" placeholder="https://… (de otro sitio)" spellcheck="false">
+            <button class="tb-btn" id="bg-apply" title="Usar esta imagen de fondo"><i class="bi bi-check-lg"></i></button>
+            <button class="tb-btn" id="bg-clear" title="Quitar la imagen de fondo"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <p class="hint">Pega el enlace de una imagen de internet y se usa como fondo (cubre todo el elemento). También puedes subir un archivo en la sección «Fondo» de abajo.</p>
+        </div>
+        <div id="selectors"></div>
+        <div id="styles"></div>
+      </div>
+      <div class="pane" data-group="right" data-pane="traits">
+        <div class="ov" id="img-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-image"></i> Imagen desde una URL</div>
+          <div class="ov-row">
+            <input type="url" id="img-url" class="ov-text" placeholder="https://sitio.com/foto.jpg" spellcheck="false">
+            <button class="tb-btn" id="img-apply" title="Usar esta imagen"><i class="bi bi-check-lg"></i></button>
+          </div>
+          <p class="hint">Pega el enlace de una imagen de otro sitio. Para subir un archivo, haz doble clic sobre la imagen.</p>
+        </div>
+        <div class="ov" id="video-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-camera-video"></i> Video desde una URL</div>
+          <div class="ov-row">
+            <input type="url" id="video-url" class="ov-text" placeholder="YouTube, Vimeo o enlace .mp4" spellcheck="false">
+            <button class="tb-btn" id="video-apply" title="Usar este video"><i class="bi bi-check-lg"></i></button>
+          </div>
+          <p class="hint">Acepta enlaces de YouTube, Vimeo o un archivo de video (.mp4, .webm) de otro sitio.</p>
+          <div class="ov-title" style="margin-top:12px"><i class="bi bi-upload"></i> O sube un archivo</div>
+          <input type="file" id="video-file" class="ov-file" accept="video/*">
+          <p class="hint">Se guardará en la carpeta <b>assets</b> al exportar. Para videos muy pesados es mejor usar una URL o YouTube.</p>
+        </div>
+        <div id="traits"></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    /* =====================================================================
+       Utilidades
+    ===================================================================== */
+    const $  = (s, r = document) => r.querySelector(s);
+    const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+    const STORAGE_KEY = 'bs5-editor-proyecto';
+
+    function toast(msg) {
+      const t = document.createElement('div');
+      t.className = 'app-toast';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2200);
+    }
+
+    function showTab(group, tab) {
+      $$(`.tabs[data-group="${group}"] button`).forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      $$(`.pane[data-group="${group}"]`).forEach(p => p.classList.toggle('active', p.dataset.pane === tab));
+    }
+    $$('.tabs button').forEach(btn =>
+      btn.addEventListener('click', () => showTab(btn.parentElement.dataset.group, btn.dataset.tab)));
+
+    /* Imágenes de ejemplo como SVG incrustado (data URI).
+       Antes se pedían a placehold.co: sin internet los bloques y las plantillas
+       nacían rotos y el laboratorio quedaba inservible. Ahora no dependen de
+       ningún servicio externo. */
+    const oscurecer = (hex, f) => hex.match(/.{2}/g)
+      .map(p => Math.round(parseInt(p, 16) * f).toString(16).padStart(2, '0')).join('');
+
+    const svgEjemplo = (w, h, col, txt) => {
+      const c2 = oscurecer(col, 0.62);
+      const fs = Math.round(Math.min(w, h) / 11);
+      const rot = txt
+        ? `<text x="50%" y="50%" fill="#ffffff" fill-opacity=".92" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="${fs}" font-weight="600" letter-spacing="1" text-anchor="middle" dominant-baseline="middle">${String(txt).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>`
+        : '';
+      const s = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`
+        + `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">`
+        + `<stop offset="0" stop-color="#${col}"/><stop offset="1" stop-color="#${c2}"/>`
+        + `</linearGradient></defs>`
+        + `<rect width="${w}" height="${h}" fill="url(#g)"/>${rot}</svg>`;
+      return 'data:image/svg+xml,' + encodeURIComponent(s);
+    };
+
+    // Imagen de ejemplo neutra para los bloques sueltos de Bootstrap
+    const PH = (w, h, txt = '') => svgEjemplo(w, h, '8d99ae', txt);
+
+    const slug = s => (s || 'pagina').toString()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/\.html?$/, '')
+      .replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'pagina';
+
+    function descargar(blob, nombre) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = nombre;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    /* =====================================================================
+       Categorías de componentes
+    ===================================================================== */
+    const CAT = {
+      est: { label: 'Estructura',   open: true  },
+      txt: { label: 'Texto',        open: false },
+      btn: { label: 'Botones',      open: false },
+      nav: { label: 'Navegación',   open: false },
+      frm: { label: 'Formularios',  open: false },
+      cnt: { label: 'Contenido',    open: false },
+      sec: { label: 'Secciones',    open: false },
+      med: { label: 'Media',        open: false },
+      adv: { label: 'Avanzado',     open: false }
+    };
+
+    /* =====================================================================
+       Sitio web: tipografías de Google, CSS base y JS base
+       (site.css y site.js se incluyen en el lienzo y en el ZIP exportado)
+    ===================================================================== */
+    const FUENTES = [
+      { nombre: 'Montserrat',         gf: 'Montserrat:wght@300;400;500;600;700',           css: "'Montserrat', sans-serif" },
+      { nombre: 'Playfair Display',   gf: 'Playfair+Display:ital,wght@0,400;0,600;0,700;1,400', css: "'Playfair Display', serif" },
+      { nombre: 'Poppins',            gf: 'Poppins:wght@300;400;500;600;700',              css: "'Poppins', sans-serif" },
+      { nombre: 'Lora',               gf: 'Lora:ital,wght@0,400;0,600;1,400',              css: "'Lora', serif" },
+      { nombre: 'Raleway',            gf: 'Raleway:wght@300;400;600;700',                  css: "'Raleway', sans-serif" },
+      { nombre: 'Open Sans',          gf: 'Open+Sans:wght@300;400;600;700',                css: "'Open Sans', sans-serif" },
+      { nombre: 'Roboto',             gf: 'Roboto:wght@300;400;500;700',                   css: "'Roboto', sans-serif" },
+      { nombre: 'Merriweather',       gf: 'Merriweather:wght@300;400;700',                 css: "'Merriweather', serif" },
+      { nombre: 'Cormorant Garamond', gf: 'Cormorant+Garamond:ital,wght@0,400;0,600;1,400', css: "'Cormorant Garamond', serif" },
+      { nombre: 'DM Serif Display',   gf: 'DM+Serif+Display',                              css: "'DM Serif Display', serif" },
+      { nombre: 'Inter',              gf: 'Inter:wght@300;400;500;600',                    css: "'Inter', sans-serif" },
+      { nombre: 'Nunito',             gf: 'Nunito:wght@300;400;600;700',                   css: "'Nunito', sans-serif" },
+      { nombre: 'Oswald',             gf: 'Oswald:wght@300;400;600',                       css: "'Oswald', sans-serif" }
+    ];
+    const gfUrl = (lista) => 'https://fonts.googleapis.com/css2?' + lista.map(f => 'family=' + f.gf).join('&') + '&display=swap';
+
+    const SITE_CSS = `
+:root{
+  --sitio-primario:#3b5bdb;
+  --sitio-osc:#1b2559;
+  --sitio-claro:#f4f6fb;
+  --sitio-acento:#f59f00;
+  --sitio-fondo:#ffffff;
+  --sitio-radio:1rem;
+  --fuente-texto:'Montserrat',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --fuente-titulos:'Playfair Display',Georgia,serif;
+}
+html{scroll-behavior:smooth}
+/* Al saltar a un ancla, deja aire para que el menú fijo no tape el titular */
+[id]{scroll-margin-top:92px}
+@media (max-width:991.98px){[id]{scroll-margin-top:76px}}
+body{font-family:var(--fuente-texto);color:#2b2b2b;background:var(--sitio-fondo);-webkit-font-smoothing:antialiased}
+.font-titulo{font-family:var(--fuente-titulos);font-weight:600;letter-spacing:.01em}
+.font-texto{font-family:var(--fuente-texto)}
+.eyebrow{display:inline-block;letter-spacing:.32em;text-transform:uppercase;font-size:.72rem;font-weight:600;color:var(--sitio-acento)}
+.seccion{padding:5.5rem 0}
+.fondo-claro{background-color:var(--sitio-claro)}
+.fondo-osc{background-color:var(--sitio-osc);color:#fff}
+.texto-acento{color:var(--sitio-acento)}
+.texto-primario{color:var(--sitio-primario)}
+
+/* Botones */
+.btn-sitio,.btn-sitio-claro,.btn-sitio-borde{display:inline-block;border-radius:50rem;padding:.8rem 1.9rem;font-size:.78rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;border:2px solid transparent;transition:all .3s ease;cursor:pointer}
+.btn-sitio{background:var(--sitio-primario);border-color:var(--sitio-primario);color:#fff}
+.btn-sitio:hover{background:var(--sitio-osc);border-color:var(--sitio-osc);color:#fff}
+.btn-sitio-claro{background:#fff;border-color:#fff;color:var(--sitio-osc)}
+.btn-sitio-claro:hover{background:transparent;color:#fff}
+.btn-sitio-borde{background:transparent;border-color:#fff;color:#fff}
+.btn-sitio-borde:hover{background:#fff;color:var(--sitio-osc)}
+
+/* Menú transparente que se vuelve sólido al bajar */
+.nav-transparente{padding:1rem 0;transition:background-color .35s,box-shadow .35s,padding .35s;background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0))}
+.nav-transparente.nav-solido{background:var(--sitio-osc);box-shadow:0 4px 18px rgba(0,0,0,.25);padding:.55rem 0}
+.nav-transparente .navbar-brand{font-family:var(--fuente-titulos);font-size:1.5rem;font-weight:700;letter-spacing:.04em;color:#fff}
+.nav-transparente .nav-link{color:rgba(255,255,255,.88);font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.5rem .65rem;white-space:nowrap}
+.nav-transparente .nav-link:hover,.nav-transparente .nav-link.active{color:#fff}
+.nav-transparente .nav-link.active{box-shadow:inset 0 -2px 0 var(--sitio-acento)}
+@media (max-width:1199.98px){
+  .nav-transparente .navbar-collapse{background:var(--sitio-osc);margin-top:.75rem;padding:1rem;border-radius:.75rem}
+  .nav-transparente .nav-link.active{box-shadow:none;color:var(--sitio-acento)}
+}
+.barra-superior{background:var(--sitio-osc);color:rgba(255,255,255,.85);font-size:.78rem;padding:.5rem 0}
+.barra-superior a{color:inherit;text-decoration:none;margin-left:1rem}
+
+/* Hero y capas de color */
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;overflow:hidden;background-size:cover;background-position:center;background-color:var(--sitio-osc)}
+.hero-interno{min-height:55vh}
+.hero-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.overlay{position:absolute;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.45);z-index:1}
+.hero-contenido{position:relative;z-index:2;max-width:880px;padding:7rem 1.5rem 5rem}
+.hero h1{font-family:var(--fuente-titulos);font-weight:600;font-size:clamp(2.4rem,5.5vw,4.6rem);line-height:1.1;text-shadow:0 2px 24px rgba(0,0,0,.35)}
+.hero .lead{font-size:clamp(1rem,1.6vw,1.25rem);font-weight:300}
+.scroll-hint{display:inline-flex;flex-direction:column;align-items:center;gap:.4rem;color:#fff;text-decoration:none;font-size:.72rem;letter-spacing:.25em;text-transform:uppercase;opacity:.85}
+.scroll-hint i{animation:rebote 1.8s infinite}
+@keyframes rebote{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+
+/* Tarjetas con imagen */
+.tarjeta-img{position:relative;overflow:hidden;border-radius:var(--sitio-radio);aspect-ratio:3/4;color:#fff;background:var(--sitio-osc)}
+.tarjeta-img.horizontal{aspect-ratio:4/3}
+.tarjeta-img img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;transition:transform .9s ease}
+.tarjeta-img:hover img{transform:scale(1.07)}
+.tarjeta-img .tarjeta-cuerpo{position:absolute;left:0;right:0;bottom:0;padding:1.6rem 1.4rem;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.78))}
+.tarjeta-img h3,.tarjeta-img h4{font-family:var(--fuente-titulos);margin-bottom:.35rem}
+.tarjeta-img .stretched-link{color:#fff;font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.6)}
+
+/* Secciones */
+.img-redondeada{border-radius:calc(var(--sitio-radio) * 1.25);width:100%;aspect-ratio:4/3;object-fit:cover;box-shadow:0 20px 50px rgba(0,0,0,.18)}
+.parallax{position:relative;background-size:cover;background-position:center;background-repeat:no-repeat;color:#fff;background-color:var(--sitio-osc)}
+@media (min-width:992px){.parallax{background-attachment:fixed}}
+.dato{font-family:var(--fuente-titulos);font-size:clamp(2.4rem,4vw,3.6rem);line-height:1;color:var(--sitio-acento)}
+.cita-texto{font-family:var(--fuente-titulos);font-style:italic;font-size:clamp(1.25rem,2.4vw,1.9rem);line-height:1.5;max-width:820px;margin:0 auto}
+.cita-autor{letter-spacing:.3em;text-transform:uppercase;font-size:.8rem;font-weight:700;color:var(--sitio-acento)}
+.carousel-citas .carousel-control-prev-icon,.carousel-citas .carousel-control-next-icon{filter:invert(1)}
+.testimonio{background:#fff;border-radius:var(--sitio-radio);padding:2rem;height:100%;box-shadow:0 8px 30px rgba(0,0,0,.06)}
+.testimonio .estrellas{color:var(--sitio-acento);letter-spacing:.15em}
+.avatar{width:52px;height:52px;border-radius:50%;object-fit:cover}
+.producto{border-radius:var(--sitio-radio);overflow:hidden;box-shadow:0 10px 35px rgba(0,0,0,.09);height:100%;background:#fff}
+.producto .foto{overflow:hidden}
+.producto img{aspect-ratio:4/3;object-fit:cover;width:100%;display:block;transition:transform .8s}
+.producto:hover img{transform:scale(1.05)}
+.servicios i{color:var(--sitio-primario);margin-right:.3rem}
+.servicios span{margin-right:.9rem;white-space:nowrap}
+.newsletter .form-control{border-radius:50rem;padding:.8rem 1.4rem;border:0}
+.barra-rapida{background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.12);padding:1.5rem 0;position:relative;z-index:5}
+
+/* Pie de página */
+.pie{position:relative;color:rgba(255,255,255,.82);background-size:cover;background-position:center;background-color:var(--sitio-osc)}
+.pie .overlay{background:rgba(13,18,48,.88)}
+.pie a{color:rgba(255,255,255,.82);text-decoration:none}
+.pie a:hover{color:#fff}
+.pie h5{font-family:var(--fuente-titulos);color:#fff;margin-bottom:1rem}
+.pie ul{list-style:none;padding:0;margin:0}
+.pie li{margin-bottom:.5rem}
+.pie .redes a{display:inline-flex;width:40px;height:40px;border:1px solid rgba(255,255,255,.35);border-radius:50%;align-items:center;justify-content:center;margin-left:.4rem;transition:all .3s}
+.pie .redes a:hover{background:var(--sitio-acento);border-color:var(--sitio-acento)}
+
+/* Galería y botón flotante */
+.galeria-item{overflow:hidden;border-radius:.75rem;aspect-ratio:1/1}
+.galeria-item img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;transition:transform .6s ease}
+.galeria-item:hover img{transform:scale(1.08)}
+.lb{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:2rem}
+.lb img{max-width:100%;max-height:100%;border-radius:.5rem}
+.whatsapp-flotante{position:fixed;right:22px;bottom:22px;width:58px;height:58px;border-radius:50%;background:#25d366;color:#fff;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.3);z-index:1030;text-decoration:none;transition:transform .3s}
+.whatsapp-flotante:hover{transform:scale(1.1);color:#fff}
+
+/* Pista deslizable con scroll-snap (tarjetas que se detienen alineadas) */
+.pista-wrap{position:relative}
+.pista{display:flex;gap:1.25rem;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:.25rem .25rem 1.5rem;scrollbar-width:thin}
+.pista>*{flex:0 0 clamp(220px,74vw,300px);scroll-snap-align:start}
+.pista-bots{display:flex;gap:.5rem;flex:none}
+.pista-bots button{width:40px;height:40px;border-radius:50%;border:1px solid rgba(0,0,0,.16);background:#fff;color:#2b2b2b;cursor:pointer;font-size:1.1rem;line-height:1;transition:all .25s}
+.pista-bots button:hover{border-color:var(--sitio-primario);color:var(--sitio-primario)}
+.fondo-osc .pista-bots button{background:transparent;border-color:rgba(255,255,255,.4);color:#fff}
+
+/* Cinta de logos de prensa (bucle continuo) */
+.cinta-marco{overflow:hidden;padding:1.75rem 0;border-top:1px solid rgba(0,0,0,.08);border-bottom:1px solid rgba(0,0,0,.08)}
+.fondo-osc .cinta-marco{border-color:rgba(255,255,255,.14)}
+.cinta{display:flex;gap:3.5rem;width:max-content;animation:cinta-desliza 32s linear infinite}
+.cinta span{font-family:var(--fuente-titulos);font-size:1.05rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap;opacity:.55}
+@keyframes cinta-desliza{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.cinta{animation:none}.cinta-marco{overflow-x:auto}}
+
+/* Animaciones al aparecer (solo si el navegador las admite; se activan con data-reveal) */
+.js-reveal [data-reveal]:not([data-reveal=""]){opacity:0;transition:opacity .9s ease,transform .9s ease;will-change:opacity,transform}
+.js-reveal [data-reveal="fade-up"]{transform:translateY(32px)}
+.js-reveal [data-reveal="fade-left"]{transform:translateX(-40px)}
+.js-reveal [data-reveal="fade-right"]{transform:translateX(40px)}
+.js-reveal [data-reveal="zoom"]{transform:scale(.94)}
+.js-reveal [data-reveal].visible{opacity:1;transform:none}
+`;
+
+    const HEAD_JS = "if('IntersectionObserver' in window&&!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('js-reveal');";
+
+    const SITE_JS = `(function(){
+  var d=document;
+  var nav=d.querySelector('.nav-transparente');
+  if(nav){
+    var f=function(){ nav.classList.toggle('nav-solido', window.scrollY>40); };
+    f();
+    window.addEventListener('scroll',f,{passive:true});
+  }
+  var els=[].slice.call(d.querySelectorAll('[data-reveal]:not([data-reveal=""])'));
+  if(els.length){
+    if('IntersectionObserver' in window){
+      var io=new IntersectionObserver(function(en){
+        en.forEach(function(x){ if(x.isIntersecting){ x.target.classList.add('visible'); io.unobserve(x.target); } });
+      },{threshold:0.12});
+      els.forEach(function(el){ io.observe(el); });
+    }else{
+      els.forEach(function(el){ el.classList.add('visible'); });
+    }
+  }
+  /* Botones que saltan a una sección: un <button> no navega solo. */
+  d.addEventListener('click',function(e){
+    var b=e.target.closest?e.target.closest('[data-ir-a]'):null;
+    if(!b) return;
+    var sel=b.getAttribute('data-ir-a');
+    if(!sel||sel.charAt(0)!=='#') return;
+    var dest=null;
+    try{ dest=d.querySelector(sel); }catch(err){ dest=null; }
+    if(!dest) return;
+    e.preventDefault();
+    dest.scrollIntoView({behavior:'smooth',block:'start'});
+    if(history.replaceState) history.replaceState(null,'',sel);
+  });
+  /* Cierra el menú desplegado en móvil al saltar a una sección */
+  d.addEventListener('click',function(e){
+    var a=e.target.closest?e.target.closest('a[href^="#"]'):null;
+    if(!a||a.getAttribute('href')==='#') return;
+    var abierto=d.querySelector('.navbar-collapse.show');
+    if(abierto&&abierto.contains(a)&&window.bootstrap&&window.bootstrap.Collapse){
+      window.bootstrap.Collapse.getOrCreateInstance(abierto).hide();
+    }
+  });
+  d.addEventListener('click',function(e){
+    var b=e.target.closest?e.target.closest('[data-pista]'):null;
+    if(!b) return;
+    var wrap=b.closest('.pista-wrap'); if(!wrap) return;
+    var pista=wrap.querySelector('.pista'); if(!pista) return;
+    var primera=pista.firstElementChild;
+    var paso=primera?primera.getBoundingClientRect().width+20:300;
+    pista.scrollBy({left:(b.getAttribute('data-pista')==='ant'?-paso:paso),behavior:'smooth'});
+  });
+  d.addEventListener('click',function(e){
+    var img=e.target.closest?e.target.closest('.galeria-lightbox img'):null;
+    if(!img) return;
+    var lb=d.createElement('div');
+    lb.className='lb';
+    var big=d.createElement('img');
+    big.src=img.currentSrc||img.src;
+    big.alt=img.alt||'';
+    lb.appendChild(big);
+    var key=function(ev){ if(ev.key==='Escape') close(); };
+    var close=function(){ if(lb.parentNode) lb.parentNode.removeChild(lb); d.removeEventListener('keydown',key); };
+    lb.addEventListener('click',close);
+    d.addEventListener('keydown',key);
+    d.body.appendChild(lb);
+  });
+})();
+`;
+
+    /* =====================================================================
+       Identidad visual del sitio
+       Reescribe las variables de :root de site.css. Un solo valor repercute
+       en botones, títulos, fondos, tarjetas y pie, tanto en el lienzo del
+       editor como en el ZIP exportado.
+    ===================================================================== */
+    const TEMA_CLAVE = 'bs5-editor-tema';
+    const TEMA_DEF = {
+      primario: '#3b5bdb', osc: '#1b2559', claro: '#f4f6fb', acento: '#f59f00', fondo: '#ffffff',
+      titulos: 'Playfair Display', texto: 'Montserrat', radio: 16
+    };
+    let TEMA = { ...TEMA_DEF };
+    try {
+      const g = localStorage.getItem(TEMA_CLAVE);
+      if (g) TEMA = { ...TEMA_DEF, ...JSON.parse(g) };
+    } catch (e) { /* almacenamiento bloqueado: se usa el tema por defecto */ }
+
+    const fuentePorNombre = (n) => FUENTES.find(f => f.nombre === n) || FUENTES[0];
+    const temaFuentes = () => [...new Set([fuentePorNombre(TEMA.titulos), fuentePorNombre(TEMA.texto)])];
+    const temaCss = () => `:root{`
+      + `--sitio-primario:${TEMA.primario};`
+      + `--sitio-osc:${TEMA.osc};`
+      + `--sitio-claro:${TEMA.claro};`
+      + `--sitio-acento:${TEMA.acento};`
+      + `--sitio-fondo:${TEMA.fondo};`
+      + `--sitio-radio:${TEMA.radio}px;`
+      + `--fuente-titulos:${fuentePorNombre(TEMA.titulos).css};`
+      + `--fuente-texto:${fuentePorNombre(TEMA.texto).css}`
+      + `}`;
+
+    const TEMA_PRESETS = [
+      { nombre: 'Azul corporativo', primario: '#3b5bdb', osc: '#1b2559', claro: '#f4f6fb', acento: '#f59f00', fondo: '#ffffff', titulos: 'Playfair Display', texto: 'Montserrat', radio: 16 },
+      { nombre: 'Selva', primario: '#0e6e66', osc: '#102a24', claro: '#f1f6f3', acento: '#d2a03c', fondo: '#ffffff', titulos: 'Lora', texto: 'Raleway', radio: 20 },
+      { nombre: 'Tierra', primario: '#a8533a', osc: '#2f1d16', claro: '#faf4ee', acento: '#c9962f', fondo: '#fffdf8', titulos: 'Cormorant Garamond', texto: 'Nunito', radio: 8 },
+      { nombre: 'Noche', primario: '#6c5ce7', osc: '#12121c', claro: '#f3f2fa', acento: '#00cec9', fondo: '#ffffff', titulos: 'DM Serif Display', texto: 'Inter', radio: 24 },
+      { nombre: 'Océano', primario: '#0a7ea4', osc: '#0b2a3a', claro: '#eef6fa', acento: '#f4a261', fondo: '#ffffff', titulos: 'Merriweather', texto: 'Open Sans', radio: 14 },
+      { nombre: 'Editorial', primario: '#111111', osc: '#1a1a1a', claro: '#f5f5f3', acento: '#c0392b', fondo: '#fcfcfa', titulos: 'Oswald', texto: 'Roboto', radio: 0 }
+    ];
+
+    /* =====================================================================
+       Almacenamiento del proyecto en IndexedDB
+       (localStorage se llena con 5 MB; con imágenes o videos no alcanza)
+    ===================================================================== */
+    let reiniciando = false;   // true mientras se borra todo para empezar de nuevo
+    const DB_NOMBRE = 'bs5-editor';
+    const conDB = (modo, fn) => new Promise((ok, err) => {
+      const r = indexedDB.open(DB_NOMBRE, 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('proyecto');
+      r.onerror = () => err(r.error);
+      r.onsuccess = () => {
+        const db = r.result;
+        const t = db.transaction('proyecto', modo);
+        const q = fn(t.objectStore('proyecto'));
+        t.oncomplete = () => { db.close(); ok(q && q.result); };
+        t.onerror = t.onabort = () => { db.close(); err(t.error); };
+      };
+    });
+    const almacenIDB = (ed) => {
+      ed.Storage.add('idb', {
+        async load() {
+          try { const d = await conDB('readonly', s => s.get(STORAGE_KEY)); if (d) return d; } catch (e) { /* sigue */ }
+          try { const old = localStorage.getItem(STORAGE_KEY); if (old) return JSON.parse(old); } catch (e) { /* sigue */ }
+          return {};
+        },
+        async store(data) {
+          // Durante un reinicio no se vuelve a escribir: si no, el autoguardado
+          // podría regrabar el proyecto justo después de borrarlo.
+          if (reiniciando) return;
+          await conDB('readwrite', s => s.put(data, STORAGE_KEY));
+        }
+      });
+    };
+
+    /* =====================================================================
+       Editor
+    ===================================================================== */
+    const editor = grapesjs.init({
+      container: '#gjs',
+      height: '100%',
+      width: 'auto',
+      fromElement: false,
+      telemetry: false,
+      panels: { defaults: [] },
+
+      storageManager: {
+        type: 'idb',
+        autosave: true,
+        autoload: true,
+        stepsBeforeSave: 3
+      },
+
+      plugins: [almacenIDB, 'grapesjs-plugin-forms', 'grapesjs-custom-code', 'grapesjs-parser-postcss'],
+      pluginsOpts: {
+        // Los bloques de formulario los definimos nosotros con clases de Bootstrap 5.
+        // El plugin solo aporta los tipos de componente y sus propiedades (name, placeholder, required…).
+        'grapesjs-plugin-forms': { blocks: [] },
+        'grapesjs-custom-code': { blockCustomCode: { label: 'Código HTML/JS', category: CAT.adv } }
+      },
+
+      blockManager:    { appendTo: '#blocks' },
+      layerManager:    { appendTo: '#layers' },
+      selectorManager: { appendTo: '#selectors', componentFirst: true },
+      styleManager:    { appendTo: '#styles' },
+      traitManager:    { appendTo: '#traits' },
+
+      // Selector de color: se muestra en <body> para que los paneles laterales
+      // (con overflow oculto) no lo recorten, y con una paleta de colores de Bootstrap.
+      colorPicker: {
+        appendTo: 'body',
+        showPalette: true,
+        showAlpha: true,
+        showInput: true,
+        showInitial: true,
+        allowEmpty: true,
+        showSelectionPalette: true,
+        maxSelectionSize: 10,
+        preferredFormat: 'hex',
+        localStorageKey: 'bs5-editor-colores',
+        palette: [
+          ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14'],
+          ['#ffc107', '#198754', '#20c997', '#0dcaf0', '#212529', '#6c757d'],
+          ['#adb5bd', '#dee2e6', '#f8f9fa', '#ffffff', '#000000', '#7c5cff']
+        ]
+      },
+
+      deviceManager: {
+        devices: [
+          { id: 'desktop', name: 'Escritorio', width: '' },
+          { id: 'tablet',  name: 'Tablet', width: '768px', widthMedia: '991px' },
+          { id: 'mobile',  name: 'Móvil',  width: '375px', widthMedia: '575px' }
+        ]
+      },
+
+      canvas: {
+        styles: [
+          'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+          'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
+          gfUrl(FUENTES)
+        ],
+        scripts: [
+          'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
+        ]
+      }
+    });
+
+    /* =====================================================================
+       Correcciones y ayudas del editor
+    ===================================================================== */
+
+    /* ---------- 1. Botones ----------
+       El tipo "button" del plugin de formularios reemplazaba el contenido del
+       botón (por ejemplo el ícono de hamburguesa) por el texto "Send".
+       Se sustituye por dos tipos que respetan el contenido original. */
+    (() => {
+      const dc = editor.DomComponents;
+      const soloTexto = (el) => el.childNodes.length > 0 && [...el.childNodes].every(n => n.nodeType === 3);
+      const traits = ['id', 'title', {
+        type: 'select', name: 'type', label: 'Tipo',
+        options: [
+          { id: 'button', name: 'Botón' },
+          { id: 'submit', name: 'Enviar (submit)' },
+          { id: 'reset',  name: 'Restablecer' }
+        ]
+      }];
+      dc.addType('btn-text', {
+        extend: 'text',
+        isComponent: el => el.tagName === 'BUTTON' && soloTexto(el) && { type: 'btn-text' },
+        model: { defaults: { tagName: 'button', traits } }
+      });
+      dc.addType('btn-plain', {
+        extend: 'default',
+        isComponent: el => el.tagName === 'BUTTON' && !soloTexto(el) && { type: 'btn-plain' },
+        model: { defaults: { tagName: 'button', droppable: true, traits } }
+      });
+    })();
+
+    /* ---------- 2. Colores: las clases de utilidad de Bootstrap (bg-*, text-*,
+       border-*) usan !important y ganan a cualquier estilo del panel.
+       Al cambiar el color desde el panel se quitan las que entran en conflicto. ---------- */
+    (() => {
+      const UTIL = {
+        'background-color': /^(bg-(?!opacity|gradient).+|text-bg-.+)$/,
+        'color': /^(text-(primary|secondary|success|danger|warning|info|light|dark|body|muted|white|black|body-secondary|body-tertiary|body-emphasis|.+-emphasis)|link-.+|text-bg-.+)$/,
+        'border-color': /^border-(primary|secondary|success|danger|warning|info|light|dark|white|black)$/
+      };
+      const liberar = (comp, prop) => {
+        const re = UTIL[prop];
+        if (!re || !comp || !comp.getClasses) return;
+        const v = comp.getStyle && comp.getStyle()[prop];
+        if (!v) return;
+        comp.getClasses().filter(c => re.test(c)).forEach(c => comp.removeClass(c));
+      };
+      editor.on('component:styleUpdate', (comp, prop) => liberar(comp, prop));
+      editor.on('style:property:update', (arg) => {
+        const p = arg && arg.property ? arg.property : arg;
+        const name = p && (p.getProperty ? p.getProperty() : (p.get ? p.get('property') : p));
+        liberar(editor.getSelected(), name);
+      });
+    })();
+
+    /* ---------- 3. Selector de color: se coloca junto al cuadro pulsado ---------- */
+    (() => {
+      let punto = { x: window.innerWidth - 40, y: 200 };
+      document.addEventListener('mousedown', (e) => { punto = { x: e.clientX, y: e.clientY }; }, true);
+      const colocar = (el) => {
+        if (el.classList.contains('sp-hidden')) return;
+        const w = el.offsetWidth, h = el.offsetHeight, m = 8;
+        let left = punto.x - w - 14;
+        if (left < m) left = Math.min(punto.x + 14, window.innerWidth - w - m);
+        const top = Math.min(Math.max(m, punto.y - 30), Math.max(m, window.innerHeight - h - m));
+        el.style.setProperty('position', 'fixed', 'important');
+        el.style.setProperty('left', left + 'px', 'important');
+        el.style.setProperty('top', top + 'px', 'important');
+      };
+      new MutationObserver(() => {
+        document.querySelectorAll('.sp-container:not(.sp-hidden)').forEach(colocar);
+      }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true, childList: true });
+    })();
+
+    /* ---------- 4. Lienzo: mostrar siempre las opciones del menú al editar ----------
+       (en la vista previa se desactiva, para ver el menú colapsado como en el sitio real) */
+    let estiloEditor = null;
+    function inyectarEstiloCanvas(doc) {
+      if (!doc || !doc.head) return;
+      let st = doc.getElementById('ed-extra');
+      if (!st) {
+        st = doc.createElement('style');
+        st.id = 'ed-extra';
+        const bps = { sm: 575.98, md: 767.98, lg: 991.98, xl: 1199.98, xxl: 1399.98 };
+        st.textContent = Object.entries(bps).map(([k, px]) =>
+          `@media (max-width:${px}px){.navbar-expand-${k} .navbar-collapse.collapse:not(.show){display:block !important;}}`
+        ).join('\n') +
+          '\n@media (max-width:767.98px){.menu-lateral.collapse:not(.show){display:block !important;}}' +
+          '\n.nav-transparente.fixed-top{position:absolute !important;}';
+        doc.head.appendChild(st);
+      }
+      let ss = doc.getElementById('ed-site');
+      if (!ss) {
+        ss = doc.createElement('style');
+        ss.id = 'ed-site';
+        ss.textContent = SITE_CSS;
+        doc.head.appendChild(ss);
+      }
+      // El tema va después de site.css para que sus variables ganen.
+      let tv = doc.getElementById('ed-tema');
+      if (!tv) {
+        tv = doc.createElement('style');
+        tv.id = 'ed-tema';
+        doc.head.appendChild(tv);
+      }
+      tv.textContent = temaCss();
+      estiloEditor = st;
+      st.disabled = document.body.classList.contains('is-preview');
+    }
+
+    // Repinta el tema en el lienzo actual (al mover un control del panel «Sitio»)
+    function pintarTema() {
+      try {
+        const doc = editor.Canvas.getDocument();
+        if (!doc || !doc.head) return;
+        let tv = doc.getElementById('ed-tema');
+        if (!tv) {
+          tv = doc.createElement('style');
+          tv.id = 'ed-tema';
+          doc.head.appendChild(tv);
+        }
+        tv.textContent = temaCss();
+      } catch (e) { /* el lienzo aún no está listo */ }
+    }
+    /* ---------- Anclas dentro del lienzo ----------
+       GrapesJS cancela la navegación de los enlaces en el lienzo (si no, al
+       editar un menú se saldría de la página). Por eso un href="#seccion"
+       parecía no funcionar. En Vista previa lo resolvemos a mano. */
+    function activarAnclasCanvas(doc) {
+      if (!doc || doc.__anclasListas) return;
+      doc.__anclasListas = true;
+      doc.addEventListener('click', (ev) => {
+        const t = ev.target && ev.target.closest
+          ? ev.target.closest('a[href^="#"], [data-ir-a]') : null;
+        if (!t) return;
+        const sel = t.getAttribute('data-ir-a') || t.getAttribute('href');
+        if (!sel || sel === '#') return;
+        if (!document.body.classList.contains('is-preview')) {
+          // En modo edición el clic sirve para seleccionar y editar el enlace.
+          toast('Pulsa «Vista previa» para probar el salto a ' + sel);
+          return;
+        }
+        ev.preventDefault();
+        ev.stopPropagation();
+        let destino = null;
+        try { destino = doc.querySelector(sel); } catch (e) { destino = null; }
+        if (!destino) {
+          toast('En esta página no hay ninguna sección con id ' + sel.slice(1));
+          return;
+        }
+        destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, true);   // fase de captura: corre antes que los manejadores de GrapesJS
+    }
+
+    editor.on('canvas:frame:load', (arg) => {
+      const win = arg && arg.window;
+      const el = arg && arg.el;
+      const doc = (win && win.document) || (el && el.contentDocument);
+      inyectarEstiloCanvas(doc);
+      activarAnclasCanvas(doc);
+      setTimeout(actualizarAncho, 100);
+    });
+
+    /* ---------- 5. Panel «Sitio»: identidad visual y ajustes de exportación ---------- */
+    let pintarTemaUI = () => {};
+    (() => {
+      const CAMPOS = [['primario', 't-primario'], ['osc', 't-osc'], ['claro', 't-claro'], ['acento', 't-acento'], ['fondo', 't-fondo']];
+      const selTit = $('#t-titulos'), selTex = $('#t-texto');
+      const rango = $('#t-radio'), rangoVal = $('#t-radio-v');
+
+      FUENTES.forEach(f => {
+        selTit.add(new Option(f.nombre, f.nombre));
+        selTex.add(new Option(f.nombre, f.nombre));
+      });
+
+      const hexValido = (v) => /^#[0-9a-f]{6}$/i.test(v);
+
+      function pintarUI() {
+        CAMPOS.forEach(([clave, id]) => {
+          $('#' + id).value = TEMA[clave];
+          $('#' + id + '-x').value = TEMA[clave];
+        });
+        selTit.value = TEMA.titulos;
+        selTex.value = TEMA.texto;
+        rango.value = TEMA.radio;
+        rangoVal.textContent = TEMA.radio + ' px';
+      }
+
+      function guardar() {
+        try { localStorage.setItem(TEMA_CLAVE, JSON.stringify(TEMA)); } catch (e) { /* sin almacenamiento */ }
+        pintarTema();
+      }
+
+      // Paletas predefinidas
+      const cajaPresets = $('#t-presets');
+      TEMA_PRESETS.forEach(p => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 't-preset';
+        b.title = `${p.nombre} · ${p.titulos} + ${p.texto}`;
+        b.innerHTML = `<span class="mu"><i style="background:${p.primario}"></i><i style="background:${p.osc}"></i><i style="background:${p.acento}"></i></span><span>${p.nombre}</span>`;
+        b.addEventListener('click', () => {
+          TEMA = { ...TEMA, ...p };
+          delete TEMA.nombre;
+          pintarUI(); guardar();
+          toast('Identidad aplicada: ' + p.nombre);
+        });
+        cajaPresets.appendChild(b);
+      });
+
+      // Colores: selector y campo de texto van sincronizados
+      CAMPOS.forEach(([clave, id]) => {
+        const color = $('#' + id), texto = $('#' + id + '-x');
+        color.addEventListener('input', () => {
+          TEMA[clave] = color.value;
+          texto.value = color.value;
+          guardar();
+        });
+        texto.addEventListener('change', () => {
+          const v = texto.value.trim();
+          if (!hexValido(v)) { texto.value = TEMA[clave]; return; }
+          TEMA[clave] = v.toLowerCase();
+          color.value = TEMA[clave];
+          guardar();
+        });
+      });
+
+      selTit.addEventListener('change', () => { TEMA.titulos = selTit.value; guardar(); });
+      selTex.addEventListener('change', () => { TEMA.texto = selTex.value; guardar(); });
+      rango.addEventListener('input', () => {
+        TEMA.radio = +rango.value;
+        rangoVal.textContent = TEMA.radio + ' px';
+        guardar();
+      });
+
+      $('#t-reset').addEventListener('click', () => {
+        TEMA = { ...TEMA_DEF };
+        pintarUI(); guardar();
+        toast('Identidad restablecida');
+      });
+
+      // Ajuste de exportación: empaquetar Bootstrap dentro del ZIP
+      const chk = $('#t-bs-local');
+      try { chk.checked = localStorage.getItem('bs5-editor-bs-local') === '1'; } catch (e) { /* sin almacenamiento */ }
+      chk.addEventListener('change', () => {
+        try { localStorage.setItem('bs5-editor-bs-local', chk.checked ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+      });
+
+      pintarTemaUI = pintarUI;   // para repintar al abrir un proyecto .json
+      pintarUI();
+      editor.on('load', pintarTema);
+    })();
+
+    /* ---------- 6. Capa de color sobre el fondo (imagen) ----------
+       Se implementa con una sombra interior gigante: se dibuja sobre el fondo
+       (incluida la imagen) y debajo del contenido. */
+    (() => {
+      const box = $('#overlay-box'), col = $('#ov-color'), op = $('#ov-op'), val = $('#ov-val');
+      const RE = /^inset\s+0(?:px)?\s+0(?:px)?\s+0(?:px)?\s+100vmax\s+rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/i;
+      const aHex = (r, g, b) => '#' + [r, g, b].map(n => Number(n).toString(16).padStart(2, '0')).join('');
+      const aRgb = (h) => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+      // El cuerpo de la página queda fuera: una sombra interior de 100vmax
+      // sobre el body tiñe la página entera y parece que el contenido
+      // desapareciera. El fondo de la página se cambia en la pestaña «Sitio».
+      const esCuerpo = (c) => !!c && ((c.is && c.is('wrapper')) || c === editor.getWrapper());
+      function leer() {
+        const c = editor.getSelected();
+        box.style.display = (c && !esCuerpo(c)) ? '' : 'none';
+        if (!c || esCuerpo(c)) return;
+        const m = RE.exec(String(c.getStyle()['box-shadow'] || '').trim());
+        if (m) {
+          col.value = aHex(m[1], m[2], m[3]);
+          op.value = Math.round((m[4] === undefined ? 1 : parseFloat(m[4])) * 100);
+        } else {
+          op.value = 0;
+        }
+        val.textContent = op.value + '%';
+      }
+      function aplicar() {
+        const c = editor.getSelected();
+        if (!c || esCuerpo(c)) return;
+        const a = op.value / 100;
+        val.textContent = op.value + '%';
+        const st = { ...c.getStyle() };
+        const actual = String(st['box-shadow'] || '').trim();
+        if (a === 0) {
+          if (!actual || RE.test(actual)) { delete st['box-shadow']; c.setStyle(st); }
+        } else {
+          const [r, g, b] = aRgb(col.value);
+          st['box-shadow'] = `inset 0 0 0 100vmax rgba(${r}, ${g}, ${b}, ${a})`;
+          c.setStyle(st);
+        }
+      }
+      col.addEventListener('input', () => { if (+op.value === 0) op.value = 50; aplicar(); });
+      op.addEventListener('input', aplicar);
+      $('#ov-clear').onclick = () => { op.value = 0; aplicar(); };
+      editor.on('component:selected component:deselected component:styleUpdate', leer);
+      editor.on('load', leer);
+    })();
+
+    /* ---------- 7. Video: por URL (YouTube, Vimeo, .mp4) o desde un archivo ---------- */
+    function analizarVideo(url) {
+      url = (url || '').trim();
+      let m = url.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i);
+      if (m) return { provider: 'yt', videoId: m[1] };
+      m = url.match(/vimeo\.com\/(?:video\/|.*\/)?(\d{5,})/i);
+      if (m) return { provider: 'vi', videoId: m[1] };
+      return { provider: 'so', src: url };
+    }
+    (() => {
+      const box = $('#video-box'), inp = $('#video-file'), url = $('#video-url');
+      const actual = (c) => {
+        if (!c) return '';
+        if (c.is('video-fondo')) { const v = c.getAttributes().src || ''; return v.startsWith('data:') ? '' : v; }
+        const v = c.get('src') || '';
+        return v.startsWith('data:') ? '' : v;
+      };
+      const mostrar = () => {
+        const c = editor.getSelected();
+        const ok = !!(c && c.is && (c.is('video') || c.is('video-fondo')));
+        box.style.display = ok ? '' : 'none';
+        if (ok) url.value = actual(c);
+      };
+      editor.on('component:selected component:deselected', mostrar);
+      const aplicar = () => {
+        const c = editor.getSelected();
+        const v = url.value.trim();
+        if (!c || !v) return;
+        if (!/^https?:\/\//i.test(v)) { toast('El enlace debe empezar con http:// o https://'); return; }
+        if (c.is('video-fondo')) c.addAttributes({ src: v });
+        else c.set(analizarVideo(v));
+        toast('Video actualizado');
+      };
+      $('#video-apply').onclick = aplicar;
+      url.addEventListener('keydown', (e) => { if (e.key === 'Enter') aplicar(); });
+      inp.addEventListener('change', () => {
+        const f = inp.files[0];
+        const c = editor.getSelected();
+        if (!f || !c) return;
+        if (f.size > 50 * 1024 * 1024 &&
+            !confirm('Este video pesa más de 50 MB y puede volver lento el editor. ¿Cargarlo de todos modos?')) { inp.value = ''; return; }
+        const r = new FileReader();
+        r.onload = () => {
+          if (c.is('video-fondo')) c.addAttributes({ src: r.result });
+          else c.set({ provider: 'so', src: r.result });
+          inp.value = ''; url.value = ''; toast('Video cargado');
+        };
+        r.readAsDataURL(f);
+      });
+    })();
+
+    /* ---------- 7b. Imagen por URL ---------- */
+    (() => {
+      const box = $('#img-box'), url = $('#img-url');
+      const mostrar = () => {
+        const c = editor.getSelected();
+        const ok = !!(c && c.is && c.is('image'));
+        box.style.display = ok ? '' : 'none';
+        if (ok) { const v = c.get('src') || c.getAttributes().src || ''; url.value = v.startsWith('data:') ? '' : v; }
+      };
+      editor.on('component:selected component:deselected component:update:src', mostrar);
+      const aplicar = () => {
+        const c = editor.getSelected();
+        const v = url.value.trim();
+        if (!c || !v) return;
+        if (!/^https?:\/\//i.test(v)) { toast('El enlace debe empezar con http:// o https://'); return; }
+        c.set('src', v);
+        c.addAttributes({ src: v });
+        toast('Imagen actualizada');
+      };
+      $('#img-apply').onclick = aplicar;
+      url.addEventListener('keydown', (e) => { if (e.key === 'Enter') aplicar(); });
+    })();
+
+    /* ---------- 7c. Imagen de fondo por URL ---------- */
+    (() => {
+      const box = $('#bg-box'), url = $('#bg-url');
+      const RE = /url\(\s*["']?([^"')]+?)["']?\s*\)/i;
+      const leer = () => {
+        const c = editor.getSelected();
+        box.style.display = c ? '' : 'none';
+        if (!c) return;
+        const m = RE.exec(String(c.getStyle()['background-image'] || ''));
+        url.value = m && !m[1].startsWith('data:') ? m[1] : '';
+      };
+      editor.on('component:selected component:deselected', leer);
+      editor.on('load', leer);
+      const aplicar = () => {
+        const c = editor.getSelected();
+        const v = url.value.trim();
+        if (!c || !v) return;
+        if (!/^https?:\/\//i.test(v)) { toast('El enlace debe empezar con http:// o https://'); return; }
+        const st = { ...c.getStyle() };
+        st['background-image'] = `url("${v}")`;
+        if (!st['background-size']) st['background-size'] = 'cover';
+        if (!st['background-position']) st['background-position'] = 'center';
+        if (!st['background-repeat']) st['background-repeat'] = 'no-repeat';
+        c.setStyle(st);
+        toast('Imagen de fondo aplicada');
+      };
+      $('#bg-apply').onclick = aplicar;
+      url.addEventListener('keydown', (e) => { if (e.key === 'Enter') aplicar(); });
+      $('#bg-clear').onclick = () => {
+        const c = editor.getSelected();
+        if (!c) return;
+        const st = { ...c.getStyle() };
+        delete st['background-image'];
+        c.setStyle(st);
+        url.value = '';
+      };
+    })();
+
+    /* ---------- 5. Indicador de ancho / punto de corte de Bootstrap ---------- */
+    function actualizarAncho() {
+      const f = editor.Canvas.getFrameEl();
+      const out = document.getElementById('bp-info');
+      if (!f || !out) return;
+      const w = Math.round(f.getBoundingClientRect().width);
+      const bp = w < 576 ? 'xs' : w < 768 ? 'sm' : w < 992 ? 'md' : w < 1200 ? 'lg' : w < 1400 ? 'xl' : 'xxl';
+      out.textContent = `${w}px · ${bp}`;
+    }
+    window.addEventListener('resize', () => setTimeout(actualizarAncho, 120));
+
+    /* =====================================================================
+       Biblioteca de componentes (Bootstrap 5.3)
+       Los marcadores __UID__ se reemplazan por un id único al soltar el bloque
+       (acordeones, carruseles, modales, pestañas, etc.).
+    ===================================================================== */
+    const add = (cat, id, label, icon, content, extra = {}) =>
+      editor.Blocks.add(id, { label, category: CAT[cat], media: `<i class="bi bi-${icon}"></i>`, content, ...extra });
+
+    /* ---------- Estructura ---------- */
+    add('est', 'container',       'Contenedor',        'square',              '<div class="container py-4"></div>');
+    add('est', 'container-fluid', 'Contenedor fluido', 'arrows-fullscreen',   '<div class="container-fluid py-4"></div>');
+    add('est', 'section',         'Sección <section>', 'layout-text-window',  '<section class="py-5"><div class="container"></div></section>');
+
+    /* Estructura semántica: estas etiquetas describen QUÉ es cada parte de la
+       página. Un <div> no significa nada; <header>, <nav>, <main>, <article>,
+       <aside> y <footer> sí, y de eso dependen los lectores de pantalla y los
+       buscadores. Cualquier contenedor ya puesto se puede convertir después
+       con la propiedad «Etiqueta HTML» del panel derecho. */
+    add('est', 'sec-header',  'Encabezado <header>', 'window-sidebar',             '<header class="py-4"><div class="container"></div></header>');
+    add('est', 'sec-nav',     'Navegación <nav>',    'list',                       '<nav class="py-2"><div class="container"></div></nav>');
+    add('est', 'sec-main',    'Principal <main>',    'file-text',                  '<main class="py-4"><div class="container"></div></main>');
+    add('est', 'sec-article', 'Artículo <article>',  'file-richtext',              '<article class="py-4"><div class="container"></div></article>');
+    add('est', 'sec-aside',   'Lateral <aside>',     'layout-sidebar-inset-reverse','<aside class="py-4"><div class="container"></div></aside>');
+    add('est', 'sec-footer',  'Pie <footer>',        'window-dock',                '<footer class="py-4"><div class="container"></div></footer>');
+    add('est', 'sec-figure',  'Figura <figure>',     'image-alt',                  `<figure class="figure"><img src="${PH(700, 480)}" class="figure-img img-fluid rounded" alt="Describe la imagen"><figcaption class="figure-caption">Pie de imagen.</figcaption></figure>`);
+    add('est', 'row',             'Fila',              'distribute-horizontal','<div class="row"><div class="col py-3"></div></div>');
+    add('est', 'col',             'Columna',           'layout-sidebar-inset','<div class="col py-3"></div>');
+    add('est', 'cols-2',          '2 columnas',        'layout-split',        '<div class="row"><div class="col-md-6 py-3"></div><div class="col-md-6 py-3"></div></div>');
+    add('est', 'cols-3',          '3 columnas',        'layout-three-columns','<div class="row"><div class="col-md-4 py-3"></div><div class="col-md-4 py-3"></div><div class="col-md-4 py-3"></div></div>');
+    add('est', 'cols-4',          '4 columnas',        'grid',                '<div class="row"><div class="col-md-3 py-3"></div><div class="col-md-3 py-3"></div><div class="col-md-3 py-3"></div><div class="col-md-3 py-3"></div></div>');
+    add('est', 'cols-8-4',        '8 + 4',             'layout-sidebar-reverse','<div class="row"><div class="col-md-8 py-3"></div><div class="col-md-4 py-3"></div></div>');
+    add('est', 'cols-4-8',        '4 + 8',             'layout-sidebar',      '<div class="row"><div class="col-md-4 py-3"></div><div class="col-md-8 py-3"></div></div>');
+    add('est', 'flex-row',        'Flex horizontal',   'arrow-left-right',    '<div class="d-flex gap-3 align-items-center py-3"></div>');
+    add('est', 'flex-col',        'Flex vertical',     'arrow-down-up',       '<div class="d-flex flex-column gap-3 py-3"></div>');
+    add('est', 'divider',         'Separador',         'dash-lg',             '<hr class="my-4">');
+    add('est', 'spacer',          'Espaciador',        'arrows-expand',       '<div class="py-4"></div>');
+
+    /* ---------- Bloques de sitio web (secciones completas listas para usar) ---------- */
+    const SITIO = (() => {
+      const IMG = (w, h, col, txt) => svgEjemplo(w, h, col, txt);
+      const BG = (w, h, col) => svgEjemplo(w, h, col, ''); // sin texto, para fondos
+      const COLORES = ['3b5bdb', '4c6ef5', '5c7cfa', '364fc7', '4263eb', '1b2559'];
+      const L = {};
+
+      /* ----- Navegación ----- */
+      L.nav = (act = 'index') => {
+        const a = (k) => (act === k ? ' active' : '');
+        return `
+<nav class="navbar navbar-expand-xl nav-transparente fixed-top" data-bs-theme="dark">
+  <div class="container">
+    <a class="navbar-brand" href="index.html">Mi Sitio</a>
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#__UID__" aria-controls="__UID__" aria-expanded="false" aria-label="Menú"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="__UID__">
+      <ul class="navbar-nav mx-auto mb-2 mb-xl-0">
+        <li class="nav-item"><a class="nav-link${a('index')}" href="index.html">Inicio</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Nosotros</a></li>
+        <li class="nav-item"><a class="nav-link${a('servicios')}" href="servicios.html">Servicios</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Proyectos</a></li>
+        <li class="nav-item"><a class="nav-link${a('galeria')}" href="galeria.html">Galería</a></li>
+        <li class="nav-item"><a class="nav-link${a('contacto')}" href="contacto.html">Contacto</a></li>
+      </ul>
+      <div class="d-flex align-items-center gap-3">
+        <div class="dropdown">
+          <a class="btn btn-sm btn-outline-light rounded-pill px-3 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-globe2 me-1"></i>ES</a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#">English</a></li>
+            <li><a class="dropdown-item" href="#">Français</a></li>
+            <li><a class="dropdown-item" href="#">Español</a></li>
+          </ul>
+        </div>
+        <a href="contacto.html" class="btn-sitio-claro">Contáctanos</a>
+      </div>
+    </div>
+  </div>
+</nav>`;
+      };
+
+      L.topbar = () => `
+<div class="barra-superior">
+  <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div><i class="bi bi-telephone me-1"></i> +000 000 000 000 <a href="#"><i class="bi bi-envelope me-1"></i> contacto@misitio.com</a></div>
+    <div><a href="#"><i class="bi bi-facebook"></i></a><a href="#"><i class="bi bi-instagram"></i></a><a href="#"><i class="bi bi-youtube"></i></a></div>
+  </div>
+</div>`;
+
+      L.idioma = () => `
+<div class="dropdown">
+  <a class="btn btn-sm btn-outline-secondary rounded-pill px-3 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-globe2 me-1"></i>ES</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="#">English</a></li>
+    <li><a class="dropdown-item" href="#">Français</a></li>
+    <li><a class="dropdown-item" href="#">Español</a></li>
+  </ul>
+</div>`;
+
+      /* ----- Cabeceras ----- */
+      L.hero = () => `
+<header class="hero" id="inicio">
+  <video class="hero-video" data-gjs-type="video-fondo" autoplay muted loop playsinline poster="${BG(1600, 900, '1b2559')}"></video>
+  <div class="overlay"></div>
+  <div class="hero-contenido">
+    <span class="eyebrow">Bienvenido</span>
+    <h1 class="mt-3 mb-4" data-reveal="fade-up">Título principal de tu sitio web</h1>
+    <p class="lead mb-5">Escribe una frase corta que explique de qué trata tu proyecto. Pega la URL de un video en Propiedades para el fondo.</p>
+    <div class="d-flex flex-wrap gap-3 justify-content-center">
+      <a href="contacto.html" class="btn-sitio-claro">Contáctanos</a>
+      <a href="#" class="btn-sitio-borde">Saber más</a>
+    </div>
+    <div class="mt-5"><a href="#intro" class="scroll-hint"><span>Descubre más</span><i class="bi bi-chevron-double-down fs-5"></i></a></div>
+  </div>
+</header>`;
+
+      L.heroImg = () => `
+<header class="hero" id="inicio" style="background-image:url(${BG(1600, 900, '3b5bdb')})">
+  <div class="overlay"></div>
+  <div class="hero-contenido">
+    <span class="eyebrow">Bienvenido</span>
+    <h1 class="mt-3 mb-4" data-reveal="fade-up">Un título claro que atrape al visitante</h1>
+    <p class="lead mb-5">Describe en una frase qué ofrece tu proyecto. Cambia la imagen de fondo con una URL en la pestaña Estilo.</p>
+    <a href="contacto.html" class="btn-sitio-claro">Empezar</a>
+  </div>
+</header>`;
+
+      L.banner = (titulo = 'Título de la página', sub = 'Mi Sitio', color = '3b5bdb') => `
+<header class="hero hero-interno" style="background-image:url(${BG(1600, 700, color)})">
+  <div class="overlay"></div>
+  <div class="hero-contenido">
+    <span class="eyebrow">${sub}</span>
+    <h1 class="mt-3">${titulo}</h1>
+  </div>
+</header>`;
+
+      /* ----- Contenido ----- */
+      L.intro = () => `
+<section class="seccion text-center" id="intro">
+  <div class="container" style="max-width:820px">
+    <span class="eyebrow" data-reveal="fade-up">Presentación</span>
+    <h2 class="font-titulo display-6 mt-3 mb-4" data-reveal="fade-up">Presenta tu proyecto en una frase</h2>
+    <p class="fs-5 text-secondary" data-reveal="fade-up">Explica quién eres, qué haces y por qué vale la pena seguir leyendo. Reemplaza este texto por el tuyo.</p>
+  </div>
+</section>`;
+
+      L.tarjeta = (t = 'Título', s = 'Descripción breve', c = '3b5bdb') => `
+<div class="tarjeta-img"><img src="${IMG(600, 800, c, t)}" alt="${t}"><div class="tarjeta-cuerpo"><h4>${t}</h4><p class="small mb-2">${s}</p><a href="#" class="stretched-link">Ver más</a></div></div>`;
+
+      L.destacados = () => `
+<section class="seccion fondo-claro" id="destacados">
+  <div class="container">
+    <div class="text-center mb-5"><span class="eyebrow">Qué hacemos</span><h2 class="font-titulo display-6 mt-3">Lo que ofrecemos</h2></div>
+    <div class="row g-4">
+      ${[['Diseño', 'Ideas creativas'], ['Desarrollo', 'Soluciones a medida'], ['Soporte', 'Siempre contigo'], ['Consultoría', 'Asesoría experta']].map(([t, s], i) => `
+      <div class="col-sm-6 col-lg-3" data-reveal="fade-up"><div class="tarjeta-img"><img src="${IMG(600, 800, COLORES[i], t)}" alt="${t}"><div class="tarjeta-cuerpo"><h4>${t}</h4><p class="small mb-2">${s}</p><a href="#" class="stretched-link">Ver más</a></div></div></div>`).join('')}
+    </div>
+  </div>
+</section>`;
+
+      const split = ({ inverso, fondo, eyebrow, titulo, texto, enlace, color, etiqueta }) => `
+<section class="seccion ${fondo}">
+  <div class="container">
+    <div class="row align-items-center g-5${inverso ? ' flex-lg-row-reverse' : ''}">
+      <div class="col-lg-6" data-reveal="${inverso ? 'fade-right' : 'fade-left'}"><img class="img-redondeada" src="${IMG(900, 675, color, etiqueta)}" alt="${etiqueta}"></div>
+      <div class="col-lg-6" data-reveal="fade-up">
+        <span class="eyebrow">${eyebrow}</span>
+        <h2 class="font-titulo display-6 mt-3 mb-4">${titulo}</h2>
+        <p class="text-secondary mb-4">${texto}</p>
+        <a href="#" class="btn-sitio">${enlace}</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+      L.splitIzq = () => split({ inverso: false, fondo: '', eyebrow: 'Sobre nosotros', titulo: 'Título de la sección', texto: 'Cuenta tu historia, lo que te hace especial y lo que verán tus visitantes. Reemplaza este texto y la imagen por los tuyos (puedes usar una URL).', enlace: 'Saber más', color: COLORES[0], etiqueta: 'Imagen' });
+      L.splitDer = () => split({ inverso: true, fondo: 'fondo-claro', eyebrow: 'Descubre', titulo: 'Otro título de sección', texto: 'Alterna secciones con la imagen a la izquierda y a la derecha para dar ritmo a la página.', enlace: 'Saber más', color: COLORES[2], etiqueta: 'Imagen' });
+      L.mision = () => split({ inverso: true, fondo: 'fondo-claro', eyebrow: 'Misión', titulo: 'Nuestra misión', texto: 'Describe aquí el propósito de tu proyecto, a quién ayuda y qué problema resuelve.', enlace: 'Conocer más', color: COLORES[1], etiqueta: 'Misión' });
+      L.servicio = () => split({ inverso: false, fondo: '', eyebrow: 'Servicios', titulo: 'Lo que hacemos mejor', texto: 'Resume tu servicio o producto principal: en qué consiste, para quién es y qué beneficios ofrece.', enlace: 'Ver servicios', color: COLORES[3], etiqueta: 'Servicio' });
+      L.valores = () => split({ inverso: true, fondo: 'fondo-claro', eyebrow: 'Valores', titulo: 'Lo que nos guía', texto: 'Cuenta en qué creen, cómo trabajan y qué compromiso tienen con las personas que confían en ustedes.', enlace: 'Ver más', color: COLORES[4], etiqueta: 'Valores' });
+
+      L.parallax = () => `
+<section class="seccion parallax" style="background-image:url(${BG(1600, 900, '1b2559')});padding:8rem 0">
+  <div class="overlay"></div>
+  <div class="container position-relative text-center" style="z-index:2">
+    <span class="eyebrow">Cifras</span>
+    <h2 class="font-titulo display-5 mt-3 mb-4" data-reveal="fade-up">Resultados que hablan</h2>
+    <p class="lead col-lg-8 mx-auto mb-5" data-reveal="fade-up">Muestra los números más importantes de tu proyecto sobre una imagen de fondo fija.</p>
+    <div class="row g-4 justify-content-center" data-reveal="fade-up">
+      <div class="col-6 col-md-3"><div class="dato">+120</div><div class="small text-uppercase mt-2" style="letter-spacing:.2em">proyectos</div></div>
+      <div class="col-6 col-md-3"><div class="dato">15</div><div class="small text-uppercase mt-2" style="letter-spacing:.2em">años de experiencia</div></div>
+      <div class="col-6 col-md-3"><div class="dato">100%</div><div class="small text-uppercase mt-2" style="letter-spacing:.2em">compromiso</div></div>
+    </div>
+  </div>
+</section>`;
+
+      const prod = (n, d, c, serv) => `
+      <div class="col-md-6 col-lg-4" data-reveal="fade-up">
+        <div class="producto">
+          <div class="foto"><img src="${IMG(800, 600, c, n)}" alt="${n}"></div>
+          <div class="p-4">
+            <h3 class="font-titulo h4">${n}</h3>
+            <p class="text-secondary small">${d}</p>
+            <p class="servicios small mb-4">${serv}</p>
+            <a href="contacto.html" class="btn-sitio">Consultar</a>
+          </div>
+        </div>
+      </div>`;
+      const SERV = '<span><i class="bi bi-check2-circle"></i>Característica 1</span><span><i class="bi bi-check2-circle"></i>Característica 2</span><span><i class="bi bi-check2-circle"></i>Característica 3</span>';
+      L.productos = () => `
+<section class="seccion fondo-claro" id="servicios">
+  <div class="container">
+    <div class="text-center mb-5"><span class="eyebrow">Servicios</span><h2 class="font-titulo display-6 mt-3">Nuestros servicios</h2></div>
+    <div class="row g-4">
+      ${prod('Servicio básico', 'Descripción breve de lo que incluye este servicio o producto.', COLORES[0], SERV)}
+      ${prod('Servicio estándar', 'Más funciones y beneficios para quienes necesitan algo más completo.', COLORES[3], SERV)}
+      ${prod('Servicio premium', 'La opción más completa, con atención personalizada.', COLORES[4], SERV)}
+    </div>
+  </div>
+</section>`;
+
+      L.barraRapida = () => `
+<section class="barra-rapida">
+  <div class="container">
+    <form class="row g-3 align-items-end" method="post" action="#">
+      <div class="col-md-3"><label class="form-label small text-uppercase">Desde</label><input type="date" class="form-control" name="desde"></div>
+      <div class="col-md-3"><label class="form-label small text-uppercase">Hasta</label><input type="date" class="form-control" name="hasta"></div>
+      <div class="col-md-3"><label class="form-label small text-uppercase">Cantidad</label><select class="form-select" name="cantidad"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5 o más</option></select></div>
+      <div class="col-md-3 d-grid"><button type="submit" class="btn-sitio">Consultar</button></div>
+    </form>
+  </div>
+</section>`;
+
+      L.citas = () => `
+<section class="seccion fondo-claro">
+  <div class="container">
+    <div class="text-center mb-4"><span class="eyebrow">Citas</span><h2 class="font-titulo display-6 mt-3">Lo que dicen de nosotros</h2></div>
+    <div id="__UID__" class="carousel slide carousel-citas" data-bs-ride="carousel">
+      <div class="carousel-inner">
+        <div class="carousel-item active text-center px-5 py-3"><p class="cita-texto">“Una cita breve de un cliente, aliado o medio que respalde tu proyecto.”</p><div class="cita-autor mt-4">Nombre o medio</div></div>
+        <div class="carousel-item text-center px-5 py-3"><p class="cita-texto">“Otra frase destacada que genere confianza en quien visita tu sitio.”</p><div class="cita-autor mt-4">Nombre o medio</div></div>
+        <div class="carousel-item text-center px-5 py-3"><p class="cita-texto">“Una tercera opinión para completar el carrusel.”</p><div class="cita-autor mt-4">Nombre o medio</div></div>
+      </div>
+      <button class="carousel-control-prev" type="button" data-bs-target="#__UID__" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Anterior</span></button>
+      <button class="carousel-control-next" type="button" data-bs-target="#__UID__" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Siguiente</span></button>
+    </div>
+  </div>
+</section>`;
+
+      const testi = (n, fecha, txt) => `
+      <div class="col-md-4" data-reveal="fade-up">
+        <div class="testimonio">
+          <div class="estrellas mb-3">★★★★★</div>
+          <p class="text-secondary">“${txt}”</p>
+          <div class="d-flex align-items-center gap-3 mt-4"><img class="avatar" src="${IMG(104, 104, '5c7cfa', n[0])}" alt="${n}"><div><div class="fw-semibold">${n}</div><small class="text-secondary">${fecha}</small></div></div>
+        </div>
+      </div>`;
+      L.testimonios = () => `
+<section class="seccion" id="testimonios">
+  <div class="container">
+    <div class="text-center mb-5"><span class="eyebrow">Opiniones</span><h2 class="font-titulo display-6 mt-3">Lo que dicen nuestros clientes</h2></div>
+    <div class="row g-4">
+      ${testi('María P.', 'Cliente', 'Una experiencia excelente. El equipo fue atento y el resultado superó lo que esperábamos.')}
+      ${testi('John S.', 'Cliente', 'Muy profesionales. Todo estuvo bien organizado y llegó a tiempo.')}
+      ${testi('Claire D.', 'Cliente', 'Lo recomiendo sin dudar: buen trato, calidad y precios justos.')}
+    </div>
+  </div>
+</section>`;
+
+      L.categorias = () => `
+<section class="seccion fondo-claro">
+  <div class="container">
+    <div class="text-center mb-5"><span class="eyebrow">Explora</span><h2 class="font-titulo display-6 mt-3">Categorías</h2></div>
+    <div class="row g-4">
+      ${[['Categoría 1', 'Descripción breve'], ['Categoría 2', 'Descripción breve'], ['Categoría 3', 'Descripción breve']].map(([t, s], i) => `
+      <div class="col-md-4" data-reveal="fade-up"><div class="tarjeta-img horizontal"><img src="${IMG(800, 600, COLORES[i + 1], t)}" alt="${t}"><div class="tarjeta-cuerpo"><h4>${t}</h4><p class="small mb-2">${s}</p><a href="#" class="stretched-link">Ver más</a></div></div></div>`).join('')}
+    </div>
+  </div>
+</section>`;
+
+      L.pista = () => `
+<section class="seccion" id="experiencias">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-end gap-3 mb-4">
+      <div>
+        <span class="eyebrow">Solo aquí</span>
+        <h2 class="font-titulo display-6 mt-3 mb-0">Experiencias destacadas</h2>
+      </div>
+      <div class="pista-bots">
+        <button type="button" data-pista="ant" aria-label="Anterior"><i class="bi bi-chevron-left"></i></button>
+        <button type="button" data-pista="sig" aria-label="Siguiente"><i class="bi bi-chevron-right"></i></button>
+      </div>
+    </div>
+    <div class="pista-wrap">
+      <div class="pista">
+        ${['Primera experiencia', 'Segunda experiencia', 'Tercera experiencia', 'Cuarta experiencia', 'Quinta experiencia']
+          .map((t, i) => `<div class="tarjeta-img horizontal"><img src="${IMG(600, 450, COLORES[i % 6], 'Foto ' + (i + 1))}" alt="${t}"><div class="tarjeta-cuerpo"><h4>${t}</h4><p class="small mb-2">Describe en una línea de qué se trata.</p><a href="#" class="stretched-link">Ver más</a></div></div>`).join('')}
+      </div>
+    </div>
+    <p class="text-secondary small mb-0">Se desliza con el dedo, con la rueda del ratón o con las flechas. Las tarjetas se detienen alineadas.</p>
+  </div>
+</section>`;
+
+      L.prensa = () => `
+<section class="seccion fondo-claro" id="prensa">
+  <div class="container">
+    <blockquote class="text-center mb-5" data-reveal="fade-up">
+      <p class="cita-texto mb-3">Una frase breve de un medio o de un cliente, suficiente para dar confianza sin robar protagonismo.</p>
+      <span class="cita-autor">Nombre del medio</span>
+    </blockquote>
+    <div class="cinta-marco">
+      <div class="cinta">
+        <span>Medio uno</span><span>Medio dos</span><span>Medio tres</span><span>Medio cuatro</span><span>Medio cinco</span><span>Medio seis</span>
+        <span aria-hidden="true">Medio uno</span><span aria-hidden="true">Medio dos</span><span aria-hidden="true">Medio tres</span><span aria-hidden="true">Medio cuatro</span><span aria-hidden="true">Medio cinco</span><span aria-hidden="true">Medio seis</span>
+      </div>
+    </div>
+    <p class="text-secondary small text-center mt-3 mb-0">La lista va <b>dos veces</b>: al llegar a la mitad el bucle reinicia en un punto idéntico y la costura no se nota. La segunda copia lleva aria-hidden para que un lector de pantalla no la repita.</p>
+  </div>
+</section>`;
+
+      L.galeria = () => `
+<section class="seccion" id="galeria">
+  <div class="container">
+    <div class="text-center mb-5"><span class="eyebrow">Imágenes</span><h2 class="font-titulo display-6 mt-3">Galería</h2></div>
+    <div class="row g-3 galeria-lightbox">
+      ${[0, 1, 2, 3, 4, 5, 6, 7, 8].map(i => `
+      <div class="col-6 col-md-4" data-reveal="zoom"><div class="galeria-item"><img src="${IMG(800, 800, COLORES[i % 6], 'Foto ' + (i + 1))}" alt="Foto ${i + 1}"></div></div>`).join('')}
+    </div>
+  </div>
+</section>`;
+
+      L.contacto = () => `
+<section class="seccion fondo-claro" id="contacto">
+  <div class="container">
+    <div class="row g-5">
+      <div class="col-lg-5">
+        <span class="eyebrow">Escríbenos</span>
+        <h2 class="font-titulo display-6 mt-3 mb-4">Hablemos</h2>
+        <p class="text-secondary mb-4">Cuéntanos en qué podemos ayudarte y te responderemos lo antes posible.</p>
+        <p><i class="bi bi-geo-alt texto-primario me-2"></i>Dirección, Ciudad, País</p>
+        <p><i class="bi bi-telephone texto-primario me-2"></i>+000 000 000 000</p>
+        <p><i class="bi bi-envelope texto-primario me-2"></i>contacto@misitio.com</p>
+        <p><i class="bi bi-clock texto-primario me-2"></i>Lunes a viernes, 8:00 a 18:00</p>
+      </div>
+      <div class="col-lg-7">
+        <form class="p-4 p-md-5 bg-white rounded-4 shadow-sm" method="post" action="#">
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">Nombre</label><input type="text" class="form-control" name="nombre" required></div>
+            <div class="col-md-6"><label class="form-label">Correo electrónico</label><input type="email" class="form-control" name="correo" required></div>
+            <div class="col-md-6"><label class="form-label">Teléfono</label><input type="tel" class="form-control" name="telefono"></div>
+            <div class="col-md-6"><label class="form-label">Asunto</label><input type="text" class="form-control" name="asunto"></div>
+            <div class="col-12"><label class="form-label">Mensaje</label><textarea class="form-control" name="mensaje" rows="5"></textarea></div>
+            <div class="col-12"><button type="submit" class="btn-sitio">Enviar mensaje</button></div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>`;
+
+      L.mapa = () => `
+<section><iframe src="https://maps.google.com/maps?q=Quito&t=&z=12&ie=UTF8&iwloc=&output=embed" style="width:100%;height:420px;border:0" loading="lazy"></iframe></section>`;
+
+      L.newsletter = () => `
+<section class="seccion fondo-osc newsletter" id="newsletter">
+  <div class="container text-center" style="max-width:720px">
+    <h2 class="font-titulo display-6" data-reveal="fade-up">Recibe nuestras novedades</h2>
+    <p class="mb-4 opacity-75">Noticias y novedades directo a tu correo.</p>
+    <form class="row g-2 justify-content-center" method="post" action="#">
+      <div class="col-sm-8"><input type="email" class="form-control" name="correo" placeholder="Tu correo electrónico" required></div>
+      <div class="col-sm-4 d-grid"><button type="submit" class="btn-sitio-claro">Suscribirme</button></div>
+    </form>
+  </div>
+</section>`;
+
+      L.pie = () => `
+<footer class="pie" style="background-image:url(${BG(1600, 900, '1b2559')})">
+  <div class="overlay"></div>
+  <div class="container position-relative py-5" style="z-index:2">
+    <div class="text-center mb-5">
+      <a href="index.html" class="font-titulo fs-2 text-white">Mi Sitio</a>
+      <p class="mt-3 mb-0 opacity-75">Una frase corta sobre tu proyecto.</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-6 col-lg-3"><h5>Sitio</h5><ul><li><a href="#">Sobre nosotros</a></li><li><a href="servicios.html">Servicios</a></li><li><a href="#">Proyectos</a></li><li><a href="#">Equipo</a></li></ul></div>
+      <div class="col-6 col-lg-3"><h5>Recursos</h5><ul><li><a href="#">Blog</a></li><li><a href="#">Documentos</a></li><li><a href="#">Preguntas frecuentes</a></li></ul></div>
+      <div class="col-6 col-lg-3"><h5>Información</h5><ul><li><a href="galeria.html">Galería</a></li><li><a href="#">Términos y condiciones</a></li><li><a href="contacto.html">Contacto</a></li></ul></div>
+      <div class="col-6 col-lg-3"><h5>Contacto</h5><ul><li><i class="bi bi-telephone me-2"></i>+000 000 000 000</li><li><i class="bi bi-whatsapp me-2"></i>+000 000 000 000</li><li><i class="bi bi-envelope me-2"></i>contacto@misitio.com</li></ul></div>
+    </div>
+    <hr class="border-light opacity-25 my-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 small">
+      <span>© 2026 Mi Sitio. Todos los derechos reservados.</span>
+      <div class="redes"><a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a><a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a><a href="#" aria-label="TikTok"><i class="bi bi-tiktok"></i></a><a href="#" aria-label="YouTube"><i class="bi bi-youtube"></i></a></div>
+    </div>
+  </div>
+</footer>`;
+
+      L.whatsapp = () => `<a href="https://wa.me/000000000000" class="whatsapp-flotante" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="bi bi-whatsapp"></i></a>`;
+
+      /* ----- Plantillas ----- */
+      const PLANTILLAS = {
+        inicio: () => [L.nav('index'), L.hero(), L.intro(), L.destacados(), L.pista(), L.parallax(), L.mision(), L.servicio(), L.valores(), L.prensa(), L.testimonios(), L.categorias(), L.newsletter(), L.pie(), L.whatsapp()],
+        servicios: () => [L.nav('servicios'), L.banner('Servicios', 'Lo que ofrecemos', '4263eb'), L.barraRapida(), L.productos(), L.valores(), L.newsletter(), L.pie(), L.whatsapp()],
+        galeria: () => [L.nav('galeria'), L.banner('Galería', 'Imágenes', '364fc7'), L.galeria(), L.newsletter(), L.pie(), L.whatsapp()],
+        contacto: () => [L.nav('contacto'), L.banner('Contacto', 'Escríbenos', '5c7cfa'), L.contacto(), L.mapa(), L.pie(), L.whatsapp()]
+      };
+
+      /* ----- Bloques: cada uno en su categoría ----- */
+      const registrar = () => {
+      // Navegación
+      add('nav', 's-nav',       'Menú transparente',        'menu-up',            L.nav('index'));
+      add('nav', 's-topbar',    'Barra superior',           'telephone',          L.topbar());
+      add('nav', 's-idioma',    'Selector de idioma',       'translate',          L.idioma());
+      // Botones
+      add('btn', 's-whatsapp',  'Botón flotante de WhatsApp', 'whatsapp',         L.whatsapp());
+      // Formularios
+      add('frm', 's-barra',     'Formulario rápido (fechas)', 'calendar-check',   L.barraRapida());
+      add('frm', 's-newsletter','Suscripción',              'send',               L.newsletter());
+      // Contenido
+      add('cnt', 's-tarjeta',   'Tarjeta con imagen',       'card-image',         L.tarjeta());
+      // Secciones
+      add('sec', 's-hero-video','Hero con video de fondo',  'camera-reels',       L.hero());
+      add('sec', 's-hero-img',  'Hero con imagen de fondo', 'image',              L.heroImg());
+      add('sec', 's-banner',    'Cabecera de página',       'card-heading',       L.banner());
+      add('sec', 's-intro',     'Introducción',             'text-center',        L.intro());
+      add('sec', 's-destacados','Destacados (4 tarjetas)',  'grid',               L.destacados());
+      add('sec', 's-split-izq', 'Imagen + texto (izq.)',    'layout-sidebar',     L.splitIzq());
+      add('sec', 's-split-der', 'Imagen + texto (der.)',    'layout-sidebar-reverse', L.splitDer());
+      add('sec', 's-parallax',  'Fondo fijo con cifras',    'bar-chart-line',     L.parallax());
+      add('sec', 's-servicios', 'Servicios (3 tarjetas)',   'columns-gap',        L.productos());
+      add('sec', 's-categorias','Categorías (3 tarjetas)',  'collection',         L.categorias());
+      add('sec', 's-pista',     'Pista deslizable (snap)',  'arrow-left-right',   L.pista());
+      add('sec', 's-prensa',    'Prensa y cinta de logos',  'megaphone',          L.prensa());
+      add('sec', 's-citas',     'Carrusel de citas',        'chat-quote',         L.citas());
+      add('sec', 's-testimonios','Testimonios (3)',         'star-half',          L.testimonios());
+      add('sec', 's-contacto',  'Contacto con formulario',  'envelope-paper',     L.contacto());
+      add('sec', 's-pie',       'Pie con foto y redes',     'layout-text-window-reverse', L.pie());
+      // Media
+      add('med', 's-galeria',   'Galería con ampliación',   'images',             L.galeria());
+
+      };
+
+      return { L, PLANTILLAS, registrar };
+    })();
+
+    /* ---------- Herramientas para sitios web ---------- */
+
+    // Video de fondo del hero (etiqueta <video> con clase hero-video)
+    editor.DomComponents.addType('video-fondo', {
+      isComponent: el => el.tagName === 'VIDEO' && el.classList && el.classList.contains('hero-video') && { type: 'video-fondo' },
+      extend: 'default',
+      model: {
+        defaults: {
+          tagName: 'video',
+          droppable: false,
+          attributes: { autoplay: true, muted: true, loop: true, playsinline: true },
+          traits: [
+            { type: 'text', name: 'src', label: 'URL del video (mp4)' },
+            { type: 'text', name: 'poster', label: 'Imagen de portada (poster)' }
+          ]
+        }
+      }
+    });
+
+    // El administrador de selectores se dibuja dos veces con appendTo: se deja solo uno
+    (() => {
+      const box = $('#selectors');
+      const limpiar = () => $$('.gjs-clm-tags', box).slice(1).forEach(el => el.remove());
+      new MutationObserver(limpiar).observe(box, { childList: true, subtree: true });
+      editor.on('load', limpiar);
+      limpiar();
+    })();
+
+    /* =====================================================================
+       Etiqueta HTML semántica
+       Convierte un contenedor ya colocado en <section>, <header>, <nav>…
+       sin perder su contenido, sus clases ni su id.
+    ===================================================================== */
+    const ETIQUETAS = [
+      ['div', 'div (sin significado)'], ['section', 'section — sección temática'],
+      ['header', 'header — encabezado'], ['nav', 'nav — navegación'],
+      ['main', 'main — contenido principal'], ['article', 'article — contenido independiente'],
+      ['aside', 'aside — contenido lateral'], ['footer', 'footer — pie'],
+      ['figure', 'figure — figura con pie']
+    ];
+    const ES_CONTENEDOR = (c) => {
+      const t = (c.get('tagName') || '').toLowerCase();
+      return ETIQUETAS.some(([e]) => e === t);
+    };
+
+    function cambiarEtiqueta(comp, tag) {
+      if (!comp || !tag) return;
+      const actual = (comp.get('tagName') || '').toLowerCase();
+      if (tag === actual) return;
+      const padre = comp.parent();
+      if (!padre) return;
+      const idx = comp.index();
+      const attrs = comp.getAttributes() || {};
+      const atrStr = Object.keys(attrs)
+        .filter(k => k !== 'id' || attrs[k])
+        .filter(k => attrs[k] !== undefined && attrs[k] !== '' && attrs[k] !== false)
+        .map(k => `${k}="${String(attrs[k]).replace(/"/g, '&quot;')}"`)
+        .join(' ');
+      const dentro = comp.components().map(h => h.toHTML()).join('');
+      comp.remove();
+      const creados = padre.append(`<${tag}${atrStr ? ' ' + atrStr : ''}>${dentro}</${tag}>`, { at: idx });
+      const nuevo = Array.isArray(creados) ? creados[0] : creados;
+      if (nuevo) editor.select(nuevo);
+      toast('Convertido en <' + tag + '>');
+    }
+
+    editor.on('component:selected', (c) => {
+      if (!c || !c.getTrait || (c.is && c.is('wrapper')) || !ES_CONTENEDOR(c)) return;
+      if (!c.getTrait('etiqueta-html')) {
+        c.addTrait({
+          type: 'select', name: 'etiqueta-html', label: 'Etiqueta HTML', changeProp: true,
+          options: ETIQUETAS.map(([id, name]) => ({ id, value: id, name, label: name }))
+        });
+      }
+      c.set('etiqueta-html', (c.get('tagName') || 'div').toLowerCase(), { silent: true });
+    });
+    editor.on('component:update:etiqueta-html', (c) => {
+      const v = c.get('etiqueta-html');
+      if (v && v !== (c.get('tagName') || '').toLowerCase()) cambiarEtiqueta(c, v);
+    });
+
+    /* =====================================================================
+       Enlaces a una sección de la misma página (anclas)
+       El desplegable lista los id que existen en la página actual y arma
+       el href="#..." solo. El desplazamiento suave y el margen bajo el menú
+       fijo ya están resueltos en site.css.
+    ===================================================================== */
+    const SIN_HTML = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Texto del primer titular que haya dentro, para etiquetar el ancla de forma legible
+    function tituloDe(comp) {
+      let txt = '';
+      const busca = (c) => {
+        if (txt) return;
+        const t = (c.get('tagName') || '').toLowerCase();
+        if (/^h[1-6]$/.test(t)) {
+          const v = (c.getEl && c.getEl() ? c.getEl().textContent : '') || '';
+          txt = v.trim().replace(/\s+/g, ' ').slice(0, 42);
+          return;
+        }
+        try { c.components().forEach(busca); } catch (e) { /* sin hijos */ }
+      };
+      try { comp.components().forEach(busca); } catch (e) { /* sin hijos */ }
+      return txt;
+    }
+
+    function anclasDePagina() {
+      const out = [];
+      const w = editor.getWrapper();
+      if (!w) return out;
+      const vistos = new Set();
+      const visita = (c) => {
+        try {
+          // get('attributes') trae SOLO los atributos reales del HTML.
+          // getAttributes() añadiría los id que GrapesJS inventa al aplicar
+          // un estilo (#iwej, #ikxi7v…), que no son anclas de nadie.
+          const a = c.get('attributes') || {};
+          const t = (c.get('tagName') || '').toLowerCase();
+          if (a.id && !vistos.has(a.id) &&
+              ['section', 'header', 'footer', 'main', 'article', 'aside', 'div', 'nav'].includes(t)) {
+            vistos.add(a.id);
+            out.push({ id: a.id, etiqueta: t, titulo: tituloDe(c) });
+          }
+          c.components().forEach(visita);
+        } catch (e) { /* componente sin hijos */ }
+      };
+      w.components().forEach(visita);
+      return out;
+    }
+
+    /* ---------- id repetidos ----------
+       Dos secciones con el mismo id rompen las anclas: el navegador salta
+       siempre a la primera. Al soltar un bloque que trae un id ya usado se
+       renombra, y se corrigen los enlaces internos de ese mismo bloque. */
+    function recorrer(comp, fn) {
+      fn(comp);
+      try { comp.components().forEach(h => recorrer(h, fn)); } catch (e) { /* sin hijos */ }
+    }
+
+    editor.on('block:drag:stop', (comp) => {
+      if (!comp || !comp.components) return;
+
+      const dentro = new Set();
+      recorrer(comp, c => dentro.add(c));
+
+      const ocupados = new Set();
+      const w = editor.getWrapper();
+      if (w) w.components().forEach(c => recorrer(c, x => {
+        if (dentro.has(x)) return;
+        const id = (x.get('attributes') || {}).id;
+        if (id) ocupados.add(id);
+      }));
+
+      const cambios = new Map();
+      recorrer(comp, c => {
+        const id = (c.get('attributes') || {}).id;
+        if (!id) return;
+        if (!ocupados.has(id)) { ocupados.add(id); return; }
+        let n = 2, nuevo = id + '-' + n;
+        while (ocupados.has(nuevo)) { n++; nuevo = id + '-' + n; }
+        ocupados.add(nuevo);
+        cambios.set('#' + id, '#' + nuevo);
+        c.addAttributes({ id: nuevo });
+      });
+
+      if (!cambios.size) return;
+      recorrer(comp, c => {
+        const a = c.get('attributes') || {};
+        ['href', 'data-ir-a'].forEach(k => {
+          if (a[k] && cambios.has(a[k])) c.addAttributes({ [k]: cambios.get(a[k]) });
+        });
+      });
+      toast(cambios.size === 1 ? 'Había un id repetido: se renombró' : `Había ${cambios.size} id repetidos: se renombraron`);
+    });
+
+    // Un <button> no navega solo: se le marca data-ir-a y site.js hace el salto.
+    const ES_ENLAZABLE = (c) => ['a', 'button'].includes((c.get('tagName') || '').toLowerCase());
+    const destinoActual = (c) => {
+      const a = c.get('attributes') || {};
+      const v = a['data-ir-a'] || a.href || '';
+      return String(v).startsWith('#') && v !== '#' ? v : '';
+    };
+
+    editor.on('component:selected', (c) => {
+      if (!c || !c.getTrait || !ES_ENLAZABLE(c)) return;
+      const anclas = anclasDePagina();
+      try { if (c.getTrait('ir-a-seccion')) c.removeTrait('ir-a-seccion'); } catch (e) { /* sigue */ }
+
+      // Las etiquetas se escapan: GrapesJS las pinta como HTML y un "<section>"
+      // sin escapar abre una etiqueta que se traga el resto de las opciones.
+      const rotulo = (a) => SIN_HTML(a.titulo ? `${a.titulo} — #${a.id}` : `#${a.id} (${a.etiqueta})`);
+      const opciones = [{
+        id: '', value: '', label: '—',
+        name: anclas.length ? '— ninguna —' : '(esta página no tiene secciones con id)'
+      }].concat(anclas.map(a => ({ id: '#' + a.id, value: '#' + a.id, name: rotulo(a), label: rotulo(a) })));
+
+      // Si ya apunta a un id que no existe en la página, se muestra igual
+      // para que se vea el enlace roto en vez de un desplegable en blanco.
+      const actual = destinoActual(c);
+      if (actual && !anclas.some(a => '#' + a.id === actual)) {
+        opciones.push({ id: actual, value: actual, name: SIN_HTML(actual + '  (no existe aquí)'), label: SIN_HTML(actual) });
+      }
+
+      c.addTrait({ type: 'select', name: 'ir-a-seccion', label: 'Ir a una sección', changeProp: true, options: opciones });
+      c.set('ir-a-seccion', actual, { silent: true });
+    });
+
+    editor.on('component:update:ir-a-seccion', (c) => {
+      if (!c || !ES_ENLAZABLE(c)) return;
+      const v = c.get('ir-a-seccion') || '';
+      const esBoton = (c.get('tagName') || '').toLowerCase() === 'button';
+      if (!v) {
+        c.removeAttributes(esBoton ? 'data-ir-a' : 'href');
+        return;
+      }
+      if (esBoton) c.addAttributes({ 'data-ir-a': v, type: 'button' });
+      else c.addAttributes({ href: v });
+      toast('Apunta a ' + v + '. Pulsa «Vista previa» para probarlo.');
+    });
+
+    // Propiedad "Animación al aparecer" para cualquier componente
+    editor.on('component:selected', (c) => {
+      if (!c || !c.getTrait || (c.is && c.is('wrapper')) || c.getTrait('data-reveal')) return;
+      c.addTrait({
+        type: 'select', name: 'data-reveal', label: 'Animación al aparecer',
+        options: [
+          { id: '', value: '', label: 'Ninguna', name: 'Ninguna' },
+          { id: 'fade-up', value: 'fade-up', label: 'Subir y aparecer', name: 'Subir y aparecer' },
+          { id: 'fade-in', value: 'fade-in', label: 'Solo aparecer', name: 'Solo aparecer' },
+          { id: 'fade-left', value: 'fade-left', label: 'Entrar desde la izquierda', name: 'Entrar desde la izquierda' },
+          { id: 'fade-right', value: 'fade-right', label: 'Entrar desde la derecha', name: 'Entrar desde la derecha' },
+          { id: 'zoom', value: 'zoom', label: 'Zoom suave', name: 'Zoom suave' }
+        ]
+      });
+    });
+
+    // Tipografías de Google en el panel de estilo
+    editor.on('load', () => {
+      try {
+        const prop = editor.StyleManager.getProperty('typography', 'font-family');
+        if (!prop) return;
+        const nuevos = FUENTES.map(f => ({ id: f.css, label: f.nombre }));
+        const previos = (prop.getOptions ? prop.getOptions() : prop.get('options')) || [];
+        const rest = previos.filter(o => !nuevos.some(n => n.label === (o.label || o.name)));
+        prop.set('options', [...nuevos, ...rest]);
+      } catch (e) { console.warn('No se pudieron cargar las fuentes', e); }
+    });
+
+    // Plantillas
+    function unico(html) {
+      const u = 'u' + Math.random().toString(36).slice(2, 8);
+      return html.replace(/__UID__/g, u);
+    }
+    function aplicarPlantilla(modo) {
+      const P = SITIO.PLANTILLAS;
+      const armar = (k) => P[k]().map(unico).join('\n');
+      if (modo === 'completo') editor.Pages.select(editor.Pages.getAll()[0]);
+      editor.setComponents(armar('inicio'));
+      if (modo === 'completo') {
+        const existentes = editor.Pages.getAll().map(p => slug(nombrePagina(p)));
+        [['Servicios', 'servicios'], ['Galería', 'galeria'], ['Contacto', 'contacto']].forEach(([nombre, k]) => {
+          if (!existentes.includes(slug(nombre))) editor.Pages.add({ name: nombre, component: armar(k) });
+        });
+        editor.Pages.select(editor.Pages.getAll()[0]);
+      }
+      renderPages();
+      editor.store();
+      toast(modo === 'completo' ? 'Sitio de 4 páginas creado' : 'Página de inicio creada');
+    }
+    $('#btn-templates').onclick = () => {
+      const w = document.createElement('div');
+      w.innerHTML = `
+        <p class="imp-hint">Elige un punto de partida. Todo se puede editar: textos, imágenes, colores, fuentes y secciones.</p>
+        <div class="plantilla" data-modo="completo"><i class="bi bi-collection"></i><div><b>Sitio web completo (4 páginas)</b><span>Inicio, Servicios, Galería y Contacto, con menú, pie de página y botón de WhatsApp. Reemplaza el contenido de la página de inicio.</span></div></div>
+        <div class="plantilla" data-modo="inicio"><i class="bi bi-house-door"></i><div><b>Solo la página de inicio</b><span>Menú, hero con video, destacados, servicios, testimonios y pie. Reemplaza el contenido de la página actual.</span></div></div>`;
+      w.querySelectorAll('.plantilla').forEach(el => el.addEventListener('click', () => {
+        if (!confirm('Esto reemplaza el contenido de la página actual. ¿Continuar?')) return;
+        editor.Modal.close();
+        aplicarPlantilla(el.dataset.modo);
+      }));
+      editor.Modal.open({ title: 'Plantillas', content: w });
+    };
+
+    /* ---------- Texto ---------- */
+    [1, 2, 3, 4, 5, 6].forEach(n =>
+      add('txt', 'h' + n, 'Título H' + n, n <= 3 ? 'type-h' + n : 'fonts', `<h${n}>Título H${n}</h${n}>`));
+    add('txt', 'display',    'Título grande', 'type',      '<h1 class="display-3 fw-bold">Título grande</h1>');
+    add('txt', 'paragraph',  'Párrafo',       'paragraph', '<p>Escribe aquí tu texto. Haz doble clic para editarlo.</p>');
+    add('txt', 'lead',       'Texto destacado','text-paragraph','<p class="lead">Un párrafo destacado que llama la atención.</p>');
+    add('txt', 'small',      'Texto pequeño', 'fonts',     '<p><small class="text-body-secondary">Texto pequeño o nota al pie.</small></p>');
+    add('txt', 'link',       'Enlace',        'link-45deg','<a href="#">Enlace</a>');
+    add('txt', 'quote',      'Cita',          'quote',     '<figure><blockquote class="blockquote"><p>Una cita memorable.</p></blockquote><figcaption class="blockquote-footer">Autor en <cite title="Fuente">Fuente</cite></figcaption></figure>');
+    add('txt', 'ul',         'Lista',         'list-ul',   '<ul><li>Elemento 1</li><li>Elemento 2</li><li>Elemento 3</li></ul>');
+    add('txt', 'ol',         'Lista numerada','list-ol',   '<ol><li>Primero</li><li>Segundo</li><li>Tercero</li></ol>');
+
+    /* ---------- Botones ---------- */
+    [['primary', 'primario'], ['secondary', 'secundario'], ['success', 'éxito'],
+     ['danger', 'peligro'], ['warning', 'advertencia'], ['info', 'info']].forEach(([v, n]) =>
+      add('btn', 'btn-' + v, 'Botón ' + n, 'hand-index', `<a href="#" class="btn btn-${v}" role="button">Botón</a>`));
+    add('btn', 'btn-dark',        'Botón oscuro',     'hand-index',       '<a href="#" class="btn btn-dark" role="button">Botón</a>');
+    add('btn', 'btn-outline',     'Botón contorno',   'hand-index-thumb', '<a href="#" class="btn btn-outline-primary" role="button">Botón</a>');
+    add('btn', 'btn-lg',          'Botón grande',     'arrows-angle-expand','<a href="#" class="btn btn-primary btn-lg" role="button">Botón grande</a>');
+    add('btn', 'btn-block',       'Botón ancho total','arrows-expand-vertical','<div class="d-grid"><a href="#" class="btn btn-primary" role="button">Botón ancho total</a></div>');
+    add('btn', 'btn-group',       'Grupo de botones', 'toggles2',
+      '<div class="btn-group" role="group"><a href="#" class="btn btn-primary" role="button">Izquierda</a><a href="#" class="btn btn-primary" role="button">Centro</a><a href="#" class="btn btn-primary" role="button">Derecha</a></div>');
+
+    /* ---------- Navegación ---------- */
+    const navbar = (dark) => `
+      <nav class="navbar navbar-expand-md" style="background-color:${dark ? '#212529' : '#f8f9fa'}" ${dark ? 'data-bs-theme="dark"' : ''}>
+        <div class="container">
+          <a class="navbar-brand" href="#">Mi Sitio</a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#__UID__" aria-controls="__UID__" aria-expanded="false" aria-label="Menú">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="__UID__">
+            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+              <li class="nav-item"><a class="nav-link active" href="index.html">Inicio</a></li>
+              <li class="nav-item"><a class="nav-link" href="#">Servicios</a></li>
+              <li class="nav-item"><a class="nav-link" href="#">Nosotros</a></li>
+              <li class="nav-item"><a class="nav-link" href="#">Contacto</a></li>
+            </ul>
+          </div>
+        </div>
+      </nav>`;
+    add('nav', 'navbar-light', 'Barra clara',  'window-dock', navbar(false));
+    add('nav', 'navbar-dark',  'Barra oscura', 'window-dock', navbar(true));
+
+    // Página con menú lateral: en pantallas menores a "md" el menú se oculta y aparece un botón de hamburguesa.
+    const sidebar = (dark) => `
+      <div class="row g-0 min-vh-100">
+        <div class="col-12 d-md-none">
+          <nav class="navbar" style="background-color:${dark ? '#212529' : '#f8f9fa'}" ${dark ? 'data-bs-theme="dark"' : ''}>
+            <div class="container-fluid">
+              <a class="navbar-brand" href="index.html">Mi Sitio</a>
+              <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#__UID__" aria-controls="__UID__" aria-expanded="false" aria-label="Menú">
+                <span class="navbar-toggler-icon"></span>
+              </button>
+            </div>
+          </nav>
+        </div>
+        <div class="col-md-3 col-xl-2 collapse d-md-block menu-lateral" id="__UID__" style="background-color:${dark ? '#212529' : '#f8f9fa'}" ${dark ? 'data-bs-theme="dark"' : ''}>
+          <div class="d-flex flex-column p-3 position-sticky top-0">
+            <a href="index.html" class="d-none d-md-flex align-items-center mb-3 text-decoration-none fs-4 fw-bold ${dark ? 'text-white' : 'text-body'}"><i class="bi bi-bootstrap-fill me-2"></i><span>Mi Sitio</span></a>
+            <hr class="mt-0 d-none d-md-block">
+            <ul class="nav nav-pills flex-column gap-1 mb-3">
+              <li class="nav-item"><a href="index.html" class="nav-link active"><i class="bi bi-house-door me-2"></i>Inicio</a></li>
+              <li class="nav-item"><a href="#" class="nav-link ${dark ? 'text-white' : 'text-body'}"><i class="bi bi-grid me-2"></i>Servicios</a></li>
+              <li class="nav-item"><a href="#" class="nav-link ${dark ? 'text-white' : 'text-body'}"><i class="bi bi-people me-2"></i>Nosotros</a></li>
+              <li class="nav-item"><a href="#" class="nav-link ${dark ? 'text-white' : 'text-body'}"><i class="bi bi-image me-2"></i>Galería</a></li>
+              <li class="nav-item"><a href="#" class="nav-link ${dark ? 'text-white' : 'text-body'}"><i class="bi bi-envelope me-2"></i>Contacto</a></li>
+            </ul>
+            <hr>
+            <small class="text-secondary">© 2026 Mi Sitio</small>
+          </div>
+        </div>
+        <div class="col-md-9 col-xl-10 p-4">
+          <h1>Contenido de la página</h1>
+          <p class="text-body-secondary">Arrastra aquí tus componentes.</p>
+        </div>
+      </div>`;
+    add('nav', 'sidebar-dark',  'Menú lateral oscuro', 'layout-sidebar', sidebar(true));
+    add('nav', 'sidebar-light', 'Menú lateral claro',  'layout-sidebar', sidebar(false));
+    add('nav', 'nav-tabs', 'Pestañas', 'segmented-nav', `
+      <div>
+        <ul class="nav nav-tabs" role="tablist">
+          <li class="nav-item" role="presentation"><a class="nav-link active" data-bs-toggle="tab" data-bs-target="#__UID__-1" role="tab" href="#">Uno</a></li>
+          <li class="nav-item" role="presentation"><a class="nav-link" data-bs-toggle="tab" data-bs-target="#__UID__-2" role="tab" href="#">Dos</a></li>
+          <li class="nav-item" role="presentation"><a class="nav-link" data-bs-toggle="tab" data-bs-target="#__UID__-3" role="tab" href="#">Tres</a></li>
+        </ul>
+        <div class="tab-content p-3">
+          <div class="tab-pane fade show active" id="__UID__-1" role="tabpanel"><p>Contenido de la pestaña uno.</p></div>
+          <div class="tab-pane fade" id="__UID__-2" role="tabpanel"><p>Contenido de la pestaña dos.</p></div>
+          <div class="tab-pane fade" id="__UID__-3" role="tabpanel"><p>Contenido de la pestaña tres.</p></div>
+        </div>
+      </div>`);
+    add('nav', 'nav-pills', 'Píldoras', 'menu-button-wide',
+      '<ul class="nav nav-pills"><li class="nav-item"><a class="nav-link active" href="#">Activo</a></li><li class="nav-item"><a class="nav-link" href="#">Enlace</a></li><li class="nav-item"><a class="nav-link" href="#">Enlace</a></li></ul>');
+    add('nav', 'breadcrumb', 'Migas de pan', 'chevron-double-right',
+      '<nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="#">Inicio</a></li><li class="breadcrumb-item"><a href="#">Sección</a></li><li class="breadcrumb-item active" aria-current="page">Página</li></ol></nav>');
+    add('nav', 'pagination', 'Paginación', 'three-dots',
+      '<nav aria-label="Paginación"><ul class="pagination"><li class="page-item"><a class="page-link" href="#">Anterior</a></li><li class="page-item active"><a class="page-link" href="#">1</a></li><li class="page-item"><a class="page-link" href="#">2</a></li><li class="page-item"><a class="page-link" href="#">3</a></li><li class="page-item"><a class="page-link" href="#">Siguiente</a></li></ul></nav>');
+    add('nav', 'dropdown', 'Menú desplegable', 'menu-down',
+      '<div class="dropdown"><a class="btn btn-secondary dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Menú</a><ul class="dropdown-menu"><li><a class="dropdown-item" href="#">Acción</a></li><li><a class="dropdown-item" href="#">Otra acción</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="#">Algo más</a></li></ul></div>');
+
+    /* ---------- Formularios ---------- */
+    add('frm', 'form-contact', 'Formulario contacto', 'envelope', `
+      <form class="p-3" method="post" action="#">
+        <div class="mb-3"><label class="form-label">Nombre</label><input type="text" class="form-control" name="nombre" placeholder="Tu nombre" required></div>
+        <div class="mb-3"><label class="form-label">Correo electrónico</label><input type="email" class="form-control" name="correo" placeholder="nombre@ejemplo.com" required></div>
+        <div class="mb-3"><label class="form-label">Mensaje</label><textarea class="form-control" name="mensaje" rows="4" placeholder="Escribe tu mensaje"></textarea></div>
+        <button type="submit" class="btn btn-primary">Enviar mensaje</button>
+      </form>`);
+    add('frm', 'form-login', 'Formulario acceso', 'box-arrow-in-right', `
+      <form class="p-3 mx-auto" style="max-width:380px" method="post" action="#">
+        <h3 class="mb-3 text-center">Iniciar sesión</h3>
+        <div class="form-floating mb-3"><input type="email" class="form-control" id="__UID__-a" name="correo" placeholder="nombre@ejemplo.com"><label for="__UID__-a">Correo electrónico</label></div>
+        <div class="form-floating mb-3"><input type="password" class="form-control" id="__UID__-b" name="clave" placeholder="Contraseña"><label for="__UID__-b">Contraseña</label></div>
+        <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="__UID__-c"><label class="form-check-label" for="__UID__-c">Recordarme</label></div>
+        <button type="submit" class="btn btn-primary w-100">Entrar</button>
+      </form>`);
+    add('frm', 'form-newsletter', 'Suscripción', 'send', `
+      <form class="row g-2 justify-content-center p-3" method="post" action="#">
+        <div class="col-auto"><input type="email" class="form-control" name="correo" placeholder="Tu correo electrónico"></div>
+        <div class="col-auto"><button type="submit" class="btn btn-primary">Suscribirme</button></div>
+      </form>`);
+    add('frm', 'form-empty',  'Formulario vacío', 'ui-checks', '<form class="p-3" method="post" action="#"></form>');
+    add('frm', 'input-text',  'Campo de texto',   'input-cursor-text', '<div class="mb-3"><label class="form-label">Etiqueta</label><input type="text" class="form-control" name="campo" placeholder="Escribe aquí"></div>');
+    add('frm', 'input-email', 'Campo de correo',  'at', '<div class="mb-3"><label class="form-label">Correo electrónico</label><input type="email" class="form-control" name="correo" placeholder="nombre@ejemplo.com"></div>');
+    add('frm', 'input-pass',  'Campo contraseña', 'key', '<div class="mb-3"><label class="form-label">Contraseña</label><input type="password" class="form-control" name="clave"></div>');
+    add('frm', 'input-float', 'Campo flotante',   'input-cursor', '<div class="form-floating mb-3"><input type="text" class="form-control" id="__UID__" name="campo" placeholder="Campo"><label for="__UID__">Campo</label></div>');
+    add('frm', 'textarea',    'Área de texto',    'textarea-t', '<div class="mb-3"><label class="form-label">Mensaje</label><textarea class="form-control" name="mensaje" rows="4"></textarea></div>');
+    add('frm', 'select',      'Lista desplegable','menu-button-wide-fill', '<div class="mb-3"><label class="form-label">Selecciona</label><select class="form-select" name="opcion"><option selected>Elige una opción</option><option value="1">Opción 1</option><option value="2">Opción 2</option><option value="3">Opción 3</option></select></div>');
+    add('frm', 'checkbox',    'Casilla',          'check-square', '<div class="form-check"><input class="form-check-input" type="checkbox" id="__UID__" name="casilla"><label class="form-check-label" for="__UID__">Casilla</label></div>');
+    add('frm', 'radio',       'Opción (radio)',   'ui-radios', '<div class="form-check"><input class="form-check-input" type="radio" name="grupo" id="__UID__"><label class="form-check-label" for="__UID__">Opción</label></div>');
+    add('frm', 'switch',      'Interruptor',      'toggle-on', '<div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="__UID__" name="interruptor"><label class="form-check-label" for="__UID__">Interruptor</label></div>');
+    add('frm', 'input-group', 'Grupo de entrada', 'input-cursor-text', '<div class="input-group mb-3"><span class="input-group-text">@</span><input type="text" class="form-control" name="usuario" placeholder="Usuario"></div>');
+    add('frm', 'range',       'Rango',            'sliders', '<div class="mb-3"><label class="form-label">Rango</label><input type="range" class="form-range" name="rango"></div>');
+    add('frm', 'file',        'Subir archivo',    'upload', '<div class="mb-3"><label class="form-label">Archivo</label><input class="form-control" type="file" name="archivo"></div>');
+    add('frm', 'submit',      'Botón enviar',     'send-check', '<button type="submit" class="btn btn-primary">Enviar</button>');
+
+    /* ---------- Contenido ---------- */
+    add('cnt', 'card', 'Tarjeta', 'card-image', `
+      <div class="card">
+        <img src="${PH(600,400)}" class="card-img-top" alt="Imagen">
+        <div class="card-body">
+          <h5 class="card-title">Título de la tarjeta</h5>
+          <p class="card-text">Texto de ejemplo para el contenido de la tarjeta.</p>
+          <a href="#" class="btn btn-primary">Ver más</a>
+        </div>
+      </div>`);
+    add('cnt', 'card-simple', 'Tarjeta simple', 'card-text', `
+      <div class="card"><div class="card-body"><h5 class="card-title">Título</h5><h6 class="card-subtitle mb-2 text-body-secondary">Subtítulo</h6><p class="card-text">Contenido de la tarjeta.</p><a href="#" class="card-link">Enlace</a></div></div>`);
+    add('cnt', 'card-h', 'Tarjeta horizontal', 'card-heading', `
+      <div class="card mb-3"><div class="row g-0"><div class="col-md-4"><img src="${PH(400,300)}" class="img-fluid rounded-start h-100 object-fit-cover" alt="Imagen"></div><div class="col-md-8"><div class="card-body"><h5 class="card-title">Título</h5><p class="card-text">Descripción de la tarjeta horizontal.</p><a href="#" class="btn btn-primary btn-sm">Leer más</a></div></div></div></div>`);
+    add('cnt', 'jumbotron', 'Jumbotron', 'window-fullscreen',
+      '<div class="p-5 mb-4 rounded-3" style="background-color:#f8f9fa"><div class="container-fluid py-3"><h1 class="display-5 fw-bold">Título destacado</h1><p class="col-md-8 fs-5">Un mensaje breve para captar la atención.</p><a href="#" class="btn btn-primary btn-lg" role="button">Acción</a></div></div>');
+    add('cnt', 'alert', 'Alerta', 'exclamation-triangle', '<div class="alert alert-primary" role="alert">Este es un mensaje de alerta. Cambia el color con las clases <b>alert-success</b>, <b>alert-danger</b>, etc.</div>');
+    add('cnt', 'badge', 'Insignia', 'tag', '<span class="badge text-bg-primary">Nuevo</span>');
+    add('cnt', 'list-group', 'Lista de grupo', 'list-check',
+      '<ul class="list-group"><li class="list-group-item active">Elemento activo</li><li class="list-group-item">Segundo elemento</li><li class="list-group-item">Tercer elemento</li></ul>');
+    add('cnt', 'accordion', 'Acordeón', 'chevron-expand', `
+      <div class="accordion" id="__UID__">
+        <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#__UID__-1" aria-expanded="true">Elemento #1</button></h2>
+          <div id="__UID__-1" class="accordion-collapse collapse show" data-bs-parent="#__UID__"><div class="accordion-body">Contenido del primer elemento.</div></div></div>
+        <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#__UID__-2" aria-expanded="false">Elemento #2</button></h2>
+          <div id="__UID__-2" class="accordion-collapse collapse" data-bs-parent="#__UID__"><div class="accordion-body">Contenido del segundo elemento.</div></div></div>
+        <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#__UID__-3" aria-expanded="false">Elemento #3</button></h2>
+          <div id="__UID__-3" class="accordion-collapse collapse" data-bs-parent="#__UID__"><div class="accordion-body">Contenido del tercer elemento.</div></div></div>
+      </div>`);
+    add('cnt', 'carousel', 'Carrusel', 'images', `
+      <div id="__UID__" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-indicators">
+          <button type="button" data-bs-target="#__UID__" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Diapositiva 1"></button>
+          <button type="button" data-bs-target="#__UID__" data-bs-slide-to="1" aria-label="Diapositiva 2"></button>
+          <button type="button" data-bs-target="#__UID__" data-bs-slide-to="2" aria-label="Diapositiva 3"></button>
+        </div>
+        <div class="carousel-inner">
+          <div class="carousel-item active"><img src="${PH(1200,500,'Diapositiva 1')}" class="d-block w-100" alt="Diapositiva 1"></div>
+          <div class="carousel-item"><img src="${PH(1200,500,'Diapositiva 2')}" class="d-block w-100" alt="Diapositiva 2"></div>
+          <div class="carousel-item"><img src="${PH(1200,500,'Diapositiva 3')}" class="d-block w-100" alt="Diapositiva 3"></div>
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#__UID__" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Anterior</span></button>
+        <button class="carousel-control-next" type="button" data-bs-target="#__UID__" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Siguiente</span></button>
+      </div>`);
+    add('cnt', 'modal', 'Modal', 'window', `
+      <div>
+        <a class="btn btn-primary" role="button" href="#" data-bs-toggle="modal" data-bs-target="#__UID__">Abrir modal</a>
+        <div class="modal fade" id="__UID__" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Título del modal</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+            <div class="modal-body"><p>Contenido del modal.</p></div>
+            <div class="modal-footer"><a class="btn btn-secondary" role="button" href="#" data-bs-dismiss="modal">Cerrar</a><a class="btn btn-primary" role="button" href="#">Guardar</a></div>
+          </div></div>
+        </div>
+      </div>`);
+    add('cnt', 'progress', 'Barra de progreso', 'bar-chart-steps',
+      '<div class="progress" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: 60%">60%</div></div>');
+    add('cnt', 'spinner', 'Indicador de carga', 'arrow-repeat', '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando…</span></div>');
+    add('cnt', 'table', 'Tabla', 'table', `
+      <div class="table-responsive"><table class="table table-striped table-hover">
+        <thead><tr><th scope="col">#</th><th scope="col">Nombre</th><th scope="col">Correo</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">1</th><td>Ana</td><td>ana@ejemplo.com</td></tr>
+          <tr><th scope="row">2</th><td>Luis</td><td>luis@ejemplo.com</td></tr>
+          <tr><th scope="row">3</th><td>María</td><td>maria@ejemplo.com</td></tr>
+        </tbody>
+      </table></div>`);
+
+    /* ---------- Secciones prediseñadas ---------- */
+    add('sec', 'hero', 'Hero centrado', 'window-fullscreen', `
+      <section class="py-5 text-center" style="background-color:#f8f9fa"><div class="container py-5">
+        <h1 class="display-4 fw-bold">Título principal</h1>
+        <p class="lead text-body-secondary col-lg-8 mx-auto">Describe en una frase qué ofreces y por qué es valioso para tus visitantes.</p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
+          <a href="#" class="btn btn-primary btn-lg px-4" role="button">Comenzar</a>
+          <a href="#" class="btn btn-outline-secondary btn-lg px-4" role="button">Saber más</a>
+        </div>
+      </div></section>`);
+    add('sec', 'hero-img', 'Hero con imagen', 'layout-text-window-reverse', `
+      <section class="py-5"><div class="container"><div class="row align-items-center g-5">
+        <div class="col-lg-6"><h1 class="display-5 fw-bold">Título con imagen</h1><p class="lead">Un texto de apoyo que explica tu propuesta de valor de forma clara y breve.</p><a href="#" class="btn btn-primary btn-lg" role="button">Comenzar</a></div>
+        <div class="col-lg-6"><img src="${PH(700,480)}" class="img-fluid rounded shadow" alt="Imagen"></div>
+      </div></div></section>`);
+    add('sec', 'hero-bg', 'Hero con imagen de fondo', 'image-alt', `
+      <section class="py-5 text-center" style="background-image:url(${PH(1600,700)});background-size:cover;background-position:center;color:#ffffff;box-shadow:inset 0 0 0 100vmax rgba(0, 0, 0, 0.5)"><div class="container py-5">
+        <h1 class="display-4 fw-bold">Título sobre imagen</h1>
+        <p class="lead col-lg-8 mx-auto">Texto sobre una imagen de fondo con una capa de color encima. Ajusta la capa en el panel Estilo.</p>
+        <a href="#" class="btn btn-light btn-lg" role="button">Comenzar</a>
+      </div></section>`);
+    add('sec', 'features', 'Características', 'grid-3x3-gap', `
+      <section class="py-5"><div class="container">
+        <div class="text-center mb-5"><h2 class="fw-bold">Características</h2><p class="text-body-secondary">Lo que hace especial tu proyecto</p></div>
+        <div class="row g-4">
+          <div class="col-md-4 text-center"><i class="bi bi-lightning-charge fs-1 text-primary"></i><h4 class="mt-3">Rápido</h4><p class="text-body-secondary">Descripción breve de la primera característica.</p></div>
+          <div class="col-md-4 text-center"><i class="bi bi-shield-check fs-1 text-primary"></i><h4 class="mt-3">Seguro</h4><p class="text-body-secondary">Descripción breve de la segunda característica.</p></div>
+          <div class="col-md-4 text-center"><i class="bi bi-heart fs-1 text-primary"></i><h4 class="mt-3">Fácil de usar</h4><p class="text-body-secondary">Descripción breve de la tercera característica.</p></div>
+        </div>
+      </div></section>`);
+    add('sec', 'stats', 'Estadísticas', 'graph-up', `
+      <section class="py-5" style="background-color:#f8f9fa"><div class="container"><div class="row text-center g-4">
+        <div class="col-6 col-md-3"><div class="display-5 fw-bold text-primary">120+</div><div class="text-body-secondary">Clientes</div></div>
+        <div class="col-6 col-md-3"><div class="display-5 fw-bold text-primary">350</div><div class="text-body-secondary">Proyectos</div></div>
+        <div class="col-6 col-md-3"><div class="display-5 fw-bold text-primary">15</div><div class="text-body-secondary">Años</div></div>
+        <div class="col-6 col-md-3"><div class="display-5 fw-bold text-primary">24/7</div><div class="text-body-secondary">Soporte</div></div>
+      </div></div></section>`);
+    const plan = (nombre, precio, dest) => `
+      <div class="col-md-4"><div class="card h-100 text-center ${dest ? 'border-primary shadow' : ''}">
+        <div class="card-header ${dest ? 'bg-primary text-white' : ''}">${nombre}</div>
+        <div class="card-body"><h2 class="card-title">$${precio}<small class="text-body-secondary fw-light fs-6">/mes</small></h2>
+          <ul class="list-unstyled my-4"><li>Característica uno</li><li>Característica dos</li><li>Característica tres</li></ul>
+          <a href="#" class="btn ${dest ? 'btn-primary' : 'btn-outline-primary'} w-100" role="button">Elegir plan</a></div>
+      </div></div>`;
+    add('sec', 'pricing', 'Precios', 'currency-dollar', `
+      <section class="py-5"><div class="container">
+        <div class="text-center mb-5"><h2 class="fw-bold">Planes y precios</h2><p class="text-body-secondary">Elige el plan que mejor se adapte a ti</p></div>
+        <div class="row g-4">${plan('Básico', 9, false)}${plan('Profesional', 29, true)}${plan('Empresa', 59, false)}</div>
+      </div></section>`);
+    const testi = (n) => `
+      <div class="col-md-4"><div class="card h-100"><div class="card-body">
+        <p class="card-text">“Excelente servicio, superó todas mis expectativas.”</p>
+        <div class="d-flex align-items-center gap-3 mt-3"><img src="${PH(48,48)}" class="rounded-circle" alt="Foto"><div><div class="fw-semibold">Cliente ${n}</div><small class="text-body-secondary">Cargo, Empresa</small></div></div>
+      </div></div></div>`;
+    add('sec', 'testimonials', 'Testimonios', 'chat-quote', `
+      <section class="py-5" style="background-color:#f8f9fa"><div class="container">
+        <h2 class="fw-bold text-center mb-5">Lo que dicen nuestros clientes</h2>
+        <div class="row g-4">${testi(1)}${testi(2)}${testi(3)}</div>
+      </div></section>`);
+    const miembro = (n) => `
+      <div class="col-6 col-md-3 text-center"><img src="${PH(200,200)}" class="rounded-circle mb-3" alt="Miembro ${n}"><h5 class="mb-0">Nombre ${n}</h5><small class="text-body-secondary">Cargo</small></div>`;
+    add('sec', 'team', 'Equipo', 'people', `
+      <section class="py-5"><div class="container">
+        <h2 class="fw-bold text-center mb-5">Nuestro equipo</h2>
+        <div class="row g-4">${miembro(1)}${miembro(2)}${miembro(3)}${miembro(4)}</div>
+      </div></section>`);
+    add('sec', 'cta', 'Llamado a la acción', 'megaphone', `
+      <section class="py-5 text-center" style="background-color:#0d6efd;color:#ffffff"><div class="container py-3">
+        <h2 class="fw-bold">¿Listo para comenzar?</h2>
+        <p class="lead">Únete hoy y descubre todo lo que podemos hacer por ti.</p>
+        <a href="#" class="btn btn-light btn-lg" role="button">Contáctanos</a>
+      </div></section>`);
+    add('sec', 'faq', 'Preguntas frecuentes', 'question-circle', `
+      <section class="py-5"><div class="container" style="max-width:800px">
+        <h2 class="fw-bold text-center mb-4">Preguntas frecuentes</h2>
+        <div class="accordion" id="__UID__">
+          <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#__UID__-1" aria-expanded="true">¿Primera pregunta?</button></h2>
+            <div id="__UID__-1" class="accordion-collapse collapse show" data-bs-parent="#__UID__"><div class="accordion-body">Respuesta a la primera pregunta.</div></div></div>
+          <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#__UID__-2" aria-expanded="false">¿Segunda pregunta?</button></h2>
+            <div id="__UID__-2" class="accordion-collapse collapse" data-bs-parent="#__UID__"><div class="accordion-body">Respuesta a la segunda pregunta.</div></div></div>
+        </div>
+      </div></section>`);
+    add('sec', 'contact', 'Contacto', 'envelope-paper', `
+      <section class="py-5"><div class="container"><div class="row g-5">
+        <div class="col-md-5"><h2 class="fw-bold">Contáctanos</h2><p class="text-body-secondary">Escríbenos y te responderemos lo antes posible.</p>
+          <p><i class="bi bi-geo-alt me-2"></i>Dirección, Ciudad</p><p><i class="bi bi-envelope me-2"></i>correo@ejemplo.com</p><p><i class="bi bi-telephone me-2"></i>+593 000 000 000</p></div>
+        <div class="col-md-7"><form method="post" action="#">
+          <div class="row g-3"><div class="col-md-6"><input type="text" class="form-control" name="nombre" placeholder="Nombre"></div><div class="col-md-6"><input type="email" class="form-control" name="correo" placeholder="Correo"></div></div>
+          <textarea class="form-control mt-3" name="mensaje" rows="5" placeholder="Mensaje"></textarea>
+          <button type="submit" class="btn btn-primary mt-3">Enviar</button>
+        </form></div>
+      </div></div></section>`);
+    const foto = (n) => `<div class="col-6 col-md-4"><img src="${PH(500,400,'Foto '+n)}" class="img-fluid rounded" alt="Foto ${n}"></div>`;
+    add('sec', 'gallery', 'Galería', 'grid-3x3', `
+      <section class="py-5"><div class="container"><h2 class="fw-bold text-center mb-4">Galería</h2>
+        <div class="row g-3">${foto(1)}${foto(2)}${foto(3)}${foto(4)}${foto(5)}${foto(6)}</div></div></section>`);
+    add('sec', 'footer', 'Pie de página', 'layout-text-window-reverse', `
+      <footer class="py-5" style="background-color:#212529;color:#f8f9fa"><div class="container">
+        <div class="row">
+          <div class="col-md-4"><h5>Mi Sitio</h5><p class="text-secondary">Breve descripción de tu proyecto o empresa.</p></div>
+          <div class="col-md-4"><h5>Enlaces</h5><ul class="list-unstyled"><li><a href="index.html" class="link-light text-decoration-none">Inicio</a></li><li><a href="#" class="link-light text-decoration-none">Servicios</a></li><li><a href="#" class="link-light text-decoration-none">Contacto</a></li></ul></div>
+          <div class="col-md-4"><h5>Contacto</h5><p class="text-secondary mb-1">correo@ejemplo.com</p><p class="text-secondary">+593 000 000 000</p></div>
+        </div>
+        <hr class="border-secondary">
+        <p class="text-center text-secondary mb-0">© 2026 Mi Sitio. Todos los derechos reservados.</p>
+      </div></footer>`);
+
+    /* ---------- Media ---------- */
+    add('med', 'image', 'Imagen', 'image', { type: 'image', attributes: { class: 'img-fluid' } }, { select: true, activate: true });
+    add('med', 'image-round', 'Imagen redonda', 'person-circle', { type: 'image', attributes: { class: 'img-fluid rounded-circle' } }, { select: true, activate: true });
+    add('med', 'video', 'Video (YouTube / Vimeo)', 'play-btn',
+      { type: 'video', src: 'https://www.youtube.com/embed/jNQXAC9IVRw', style: { height: '350px', width: '100%' } }, { select: true });
+    add('med', 'video-file', 'Video (archivo o URL .mp4)', 'camera-video',
+      { type: 'video', provider: 'so', controls: 1, style: { height: '350px', width: '100%' } }, { select: true });
+    add('med', 'map', 'Mapa', 'geo-alt', { type: 'map', style: { height: '350px', width: '100%' } }, { select: true });
+    add('med', 'icon', 'Ícono', 'star', '<i class="bi bi-star-fill fs-1 text-warning"></i>');
+    add('med', 'placeholder', 'Imagen de ejemplo', 'card-image', `<img src="${PH(600,400)}" class="img-fluid" alt="Imagen de ejemplo">`);
+
+    SITIO.registrar();
+
+    /* ---------- IDs únicos al soltar un bloque ---------- */
+    editor.on('block:drag:stop', (component) => {
+      if (!component) return;
+      const uid = 'u' + Math.random().toString(36).slice(2, 8);
+      const walk = (c) => {
+        const attrs = { ...c.getAttributes() };
+        let changed = false;
+        Object.keys(attrs).forEach(k => {
+          if (typeof attrs[k] === 'string' && attrs[k].includes('__UID__')) {
+            attrs[k] = attrs[k].replace(/__UID__/g, uid);
+            changed = true;
+          }
+        });
+        if (changed) c.setAttributes(attrs);
+        c.components().forEach(walk);
+      };
+      walk(component);
+    });
+
+    /* =====================================================================
+       Búsqueda de componentes
+    ===================================================================== */
+    $('#q').addEventListener('input', (e) => {
+      const t = e.target.value.trim().toLowerCase();
+      $$('#blocks .gjs-block').forEach(el =>
+        el.style.display = (!t || el.textContent.toLowerCase().includes(t)) ? '' : 'none');
+      try {
+        editor.Blocks.getCategories().forEach(c => c.set('open', t ? true : c.get('label') === 'Estructura'));
+      } catch (err) { /* sin efecto */ }
+      $$('#blocks .gjs-block-category').forEach(cat => {
+        const hay = $$('.gjs-block', cat).some(b => b.style.display !== 'none');
+        cat.style.display = hay ? '' : 'none';
+      });
+    });
+
+    /* =====================================================================
+       Barra superior
+    ===================================================================== */
+    const marcar = (btn, on) => btn.classList.toggle('active', !!on);
+
+    // Dispositivos
+    $$('[data-device]').forEach(btn => btn.addEventListener('click', () => {
+      editor.setDevice(btn.dataset.device);
+      $$('[data-device]').forEach(b => marcar(b, b === btn));
+      setTimeout(actualizarAncho, 200);
+    }));
+
+    // Deshacer / rehacer
+    $('#btn-undo').onclick = () => editor.UndoManager.undo();
+    $('#btn-redo').onclick = () => editor.UndoManager.redo();
+
+    // Bordes
+    $('#btn-borders').onclick = (e) => {
+      const btn = e.currentTarget;
+      if (editor.Commands.isActive('sw-visibility')) editor.stopCommand('sw-visibility');
+      else editor.runCommand('sw-visibility');
+      marcar(btn, editor.Commands.isActive('sw-visibility'));
+    };
+
+    // Vista previa
+    function vistaPrevia(on) {
+      document.body.classList.toggle('is-preview', on);
+      marcar($('#btn-preview'), on);
+      if (estiloEditor) estiloEditor.disabled = on;
+      try {
+        if (on) {
+          editor.stopCommand('sw-visibility');
+          editor.getModel().stopDefault();
+        } else {
+          editor.getModel().runDefault();
+          if ($('#btn-borders').classList.contains('active')) editor.runCommand('sw-visibility');
+        }
+      } catch (err) { /* sin efecto */ }
+      setTimeout(() => { editor.refresh(); actualizarAncho(); }, 60);
+    }
+    $('#btn-preview').onclick = () => vistaPrevia(!document.body.classList.contains('is-preview'));
+
+    // Código
+    $('#btn-code').onclick = () => editor.runCommand('export-template');
+
+    // Importar HTML
+    $('#btn-import').onclick = () => {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = `
+        <p class="imp-hint">Pega el HTML (puede incluir <code>&lt;style&gt;</code>). Reemplaza el contenido de la página actual.</p>
+        <textarea class="imp-ta" placeholder="&lt;div class=&quot;container&quot;&gt;…&lt;/div&gt;"></textarea>
+        <div style="text-align:right;margin-top:10px"><button class="tb-btn primary">Importar</button></div>`;
+      wrap.querySelector('button').onclick = () => {
+        const v = wrap.querySelector('textarea').value.trim();
+        if (!v) return;
+        editor.setComponents(v);
+        editor.Modal.close();
+        toast('HTML importado');
+      };
+      editor.Modal.open({ title: 'Importar HTML', content: wrap });
+    };
+
+    /* ---------- Guardar / abrir proyecto (.json) ---------- */
+    function guardarJSON() {
+      // La identidad visual viaja dentro del .json: así el estudiante la conserva
+      // al cambiar de computadora en el laboratorio.
+      const proyecto = editor.getProjectData();
+      proyecto.__tema = TEMA;
+      descargar(new Blob([JSON.stringify(proyecto)], { type: 'application/json' }), 'proyecto-bootstrap.json');
+      toast('Proyecto guardado');
+    }
+    $('#btn-save').onclick = guardarJSON;
+
+    const inputAbrir = document.createElement('input');
+    inputAbrir.type = 'file';
+    inputAbrir.accept = '.json,application/json';
+    inputAbrir.style.display = 'none';
+    inputAbrir.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const proyecto = JSON.parse(reader.result);
+          if (proyecto && proyecto.__tema) {
+            TEMA = { ...TEMA_DEF, ...proyecto.__tema };
+            delete proyecto.__tema;
+            try { localStorage.setItem(TEMA_CLAVE, JSON.stringify(TEMA)); } catch (err2) { /* sin almacenamiento */ }
+          }
+          editor.loadProjectData(proyecto);
+          renderPages();
+          pintarTemaUI();
+          pintarTema();
+          editor.store();
+          toast('Proyecto abierto');
+        } catch (err) {
+          alert('El archivo no es un proyecto válido.');
+        }
+      };
+      reader.readAsText(file);
+      inputAbrir.value = '';
+    });
+    document.body.appendChild(inputAbrir);
+    $('#btn-open').onclick = () => inputAbrir.click();
+
+    /* =====================================================================
+       Empezar de nuevo
+       Todo lo que el editor recuerda vive en cinco sitios: el proyecto en
+       IndexedDB (y una copia antigua en localStorage), la identidad visual,
+       el ajuste de exportación y los colores recientes del selector.
+       Un reinicio de verdad tiene que vaciarlos todos.
+    ===================================================================== */
+    const CLAVES_AJUSTES = [TEMA_CLAVE, 'bs5-editor-bs-local', 'bs5-editor-colores'];
+
+    async function reiniciar(conAjustes) {
+      reiniciando = true;              // corta el autoguardado antes de recargar
+      try { await conDB('readwrite', s => s.delete(STORAGE_KEY)); } catch (e) { /* sigue */ }
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* sigue */ }
+      if (conAjustes) {
+        CLAVES_AJUSTES.forEach(k => { try { localStorage.removeItem(k); } catch (e) { /* sigue */ } });
+      }
+      location.reload();
+    }
+
+    $('#btn-new').onclick = () => {
+      const w = document.createElement('div');
+      w.innerHTML = `
+        <p class="imp-hint">Esto no se puede deshacer. Si quieres conservar lo que tienes, guarda primero una copia.</p>
+        <div style="margin-bottom:14px"><button class="tb-btn" id="rs-copia"><i class="bi bi-save"></i> Guardar copia (.json)</button></div>
+        <div class="plantilla" data-modo="todo"><i class="bi bi-trash3"></i><div><b>Empezar de cero</b><span>Borra las páginas, el contenido y también la identidad visual, los ajustes de exportación y los colores recientes. El editor queda como recién abierto.</span></div></div>
+        <div class="plantilla" data-modo="paginas"><i class="bi bi-files"></i><div><b>Borrar las páginas, conservar la identidad</b><span>Vacía todo el contenido pero mantiene la paleta, las tipografías y el redondeo que elegiste en la pestaña «Sitio».</span></div></div>
+        <div class="plantilla" data-modo="actual"><i class="bi bi-eraser"></i><div><b>Vaciar solo esta página</b><span>Deja en blanco la página abierta. Las demás páginas y la identidad visual no se tocan.</span></div></div>`;
+
+      w.querySelector('#rs-copia').onclick = guardarJSON;
+
+      w.querySelectorAll('.plantilla').forEach(el => {
+        el.onclick = async () => {
+          const modo = el.dataset.modo;
+          if (modo === 'actual') {
+            if (!confirm('¿Vaciar el contenido de esta página?')) return;
+            editor.setComponents('');
+            editor.store();
+            editor.Modal.close();
+            toast('Página vaciada');
+            return;
+          }
+          const aviso = modo === 'todo'
+            ? '¿Borrar TODO, incluida la identidad visual?\nEl editor quedará como recién abierto.'
+            : '¿Borrar todas las páginas?\nSe conservará la identidad visual.';
+          if (!confirm(aviso)) return;
+          editor.Modal.close();
+          await reiniciar(modo === 'todo');
+        };
+      });
+
+      editor.Modal.open({ title: 'Empezar de nuevo', content: w });
+    };
+
+    /* =====================================================================
+       Páginas
+    ===================================================================== */
+    function nombrePagina(p) { return p.get('name') || p.getId(); }
+
+    function renderPages() {
+      const list = $('#pages');
+      if (!list) return;
+      list.innerHTML = '';
+      const sel = editor.Pages.getSelected();
+      const pages = editor.Pages.getAll();
+      pages.forEach((p, i) => {
+        const row = document.createElement('div');
+        row.className = 'page-row' + (p === sel ? ' active' : '');
+        const file = i === 0 ? 'index.html' : slug(nombrePagina(p)) + '.html';
+        row.innerHTML = `<i class="bi bi-file-earmark-code"></i><span title="${file}">${file}</span>`;
+        row.addEventListener('click', () => editor.Pages.select(p));
+
+        if (i > 0) {
+          const ren = document.createElement('button');
+          ren.title = 'Renombrar';
+          ren.innerHTML = '<i class="bi bi-pencil"></i>';
+          ren.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const n = prompt('Nuevo nombre de la página (sin .html):', nombrePagina(p));
+            if (n && n.trim()) { p.set('name', n.trim()); renderPages(); editor.store(); }
+          });
+          row.appendChild(ren);
+        }
+        if (pages.length > 1) {
+          const del = document.createElement('button');
+          del.title = 'Eliminar';
+          del.innerHTML = '<i class="bi bi-trash"></i>';
+          del.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (!confirm(`¿Eliminar la página "${file}"?`)) return;
+            if (p === editor.Pages.getSelected()) {
+              const otra = pages.find(x => x !== p);
+              if (otra) editor.Pages.select(otra);
+            }
+            editor.Pages.remove(p);
+            renderPages();
+            editor.store();
+          });
+          row.appendChild(del);
+        }
+        list.appendChild(row);
+      });
+    }
+
+    /* =====================================================================
+       Partes comunes a todas las páginas (menú y pie)
+       GrapesJS guarda cada página por separado, así que no existe un
+       "componente compartido": lo que hacemos es copiar el original a las
+       demás páginas, reemplazando el que ya tuvieran.
+    ===================================================================== */
+    const SEL_NAV = 'nav.nav-transparente, header > nav, nav.navbar';
+    const SEL_PIE = 'footer';
+
+    // Marca como activo el enlace del menú que apunta al archivo de esa página
+    function marcarActivo(raiz, archivo) {
+      try {
+        raiz.find('.nav-link').forEach(l => {
+          const href = (l.getAttributes() || {}).href || '';
+          l.removeClass('active');
+          if (href === archivo) l.addClass('active');
+        });
+      } catch (e) { /* la página no tiene menú */ }
+    }
+
+    function archivoDePagina(p) {
+      const todas = editor.Pages.getAll();
+      return todas.indexOf(p) === 0 ? 'index.html' : slug(nombrePagina(p)) + '.html';
+    }
+
+    function htmlComun(selector) {
+      const w = editor.getWrapper();
+      if (!w) return null;
+      const encontrados = w.find(selector);
+      return encontrados.length ? encontrados[0].toHTML() : null;
+    }
+
+    function propagar(selector, alInicio, etiqueta) {
+      const html = htmlComun(selector);
+      if (!html) {
+        alert(`Esta página no tiene ${etiqueta}.\nColócalo primero aquí y vuelve a pulsar el botón.`);
+        return;
+      }
+      const actual = editor.Pages.getSelected();
+      let n = 0;
+      editor.Pages.getAll().forEach(p => {
+        if (p === actual) return;
+        const raiz = p.getMainComponent();
+        if (!raiz) return;
+        const previos = raiz.find(selector);
+        if (previos.length) {
+          const primero = previos[0];
+          const padre = primero.parent() || raiz;
+          const idx = primero.index();
+          previos.forEach(x => x.remove());
+          padre.append(html, { at: idx });
+        } else {
+          raiz.append(html, alInicio ? { at: 0 } : {});
+        }
+        marcarActivo(raiz, archivoDePagina(p));
+        n++;
+      });
+      // La página de origen también ajusta su propio enlace activo
+      const raizActual = editor.getWrapper();
+      if (raizActual) marcarActivo(raizActual, archivoDePagina(actual));
+      editor.store();
+      toast(n ? `${etiqueta} aplicado a ${n} página(s)` : 'No hay otras páginas todavía');
+    }
+
+    $('#sync-nav').onclick = () => propagar(SEL_NAV, true, 'El menú');
+    $('#sync-pie').onclick = () => propagar(SEL_PIE, false, 'El pie');
+
+    $('#add-page').onclick = () => {
+      const n = prompt('Nombre de la nueva página (sin .html):', 'pagina-' + (editor.Pages.getAll().length + 1));
+      if (!n || !n.trim()) return;
+
+      // La página nueva hereda el menú y el pie de la página actual
+      const nav = htmlComun(SEL_NAV) || '';
+      const pie = htmlComun(SEL_PIE) || '';
+      const cuerpo = `<main class="container py-5"><h1>${n.trim()}</h1><p class="lead text-secondary">Reemplaza este texto por el contenido de la página.</p></main>`;
+
+      const page = editor.Pages.add({ name: n.trim(), component: nav + cuerpo + pie });
+      editor.Pages.select(page);
+      const raiz = page.getMainComponent();
+      if (raiz) marcarActivo(raiz, archivoDePagina(page));
+      renderPages();
+      editor.store();
+      if (nav || pie) toast('Página creada con el menú y el pie heredados');
+    };
+
+    ['page', 'page:select', 'page:add', 'page:remove', 'page:update'].forEach(ev => editor.on(ev, renderPages));
+
+    /* =====================================================================
+       Exportar sitio completo (todas las páginas) en ZIP
+    ===================================================================== */
+    const EXT_MIME = {
+      'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp',
+      'image/svg+xml': 'svg', 'image/avif': 'avif', 'image/bmp': 'bmp', 'image/x-icon': 'ico',
+      'video/mp4': 'mp4', 'video/webm': 'webm', 'video/ogg': 'ogv', 'video/quicktime': 'mov',
+      'audio/mpeg': 'mp3', 'audio/ogg': 'ogg', 'audio/wav': 'wav', 'application/pdf': 'pdf'
+    };
+    const extDeMime = (m) => EXT_MIME[m.toLowerCase()] || ((m.split('/')[1] || 'bin').replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'bin');
+    const tipoDeMime = (m) => m.startsWith('image/') ? 'imagen' : m.startsWith('video/') ? 'video' : m.startsWith('audio/') ? 'audio' : 'archivo';
+
+    const RE_TAG_MEDIA = /<(?:img|video|source|audio)\b[^>]*>/gi;
+    const RE_ATTR_URL  = /\b(?:src|poster)\s*=\s*["'](https?:\/\/[^"']+)["']/gi;
+    const RE_CSS_URL   = /url\(\s*["']?(https?:\/\/[^"')\s]+)["']?\s*\)/gi;
+
+    function urlsExternas(html, css) {
+      const set = new Set();
+      (html.match(RE_TAG_MEDIA) || []).forEach(tag => { for (const m of tag.matchAll(RE_ATTR_URL)) set.add(m[1]); });
+      for (const m of (css || '').matchAll(RE_CSS_URL)) set.add(m[1]);
+      return [...set];
+    }
+
+    function crearContexto(zip) {
+      const cont = {};
+      return {
+        zip, datos: new Map(), ext: new Map(), fallidos: [],
+        nombre(mime) { const t = tipoDeMime(mime); cont[t] = (cont[t] || 0) + 1; return `${t}-${cont[t]}.${extDeMime(mime)}`; }
+      };
+    }
+
+    async function traerExterno(url, ctx) {
+      if (ctx.ext.has(url)) return ctx.ext.get(url);
+      let nombre = null;
+      try {
+        const ac = new AbortController();
+        const t = setTimeout(() => ac.abort(), 15000);
+        const r = await fetch(url, { signal: ac.signal });
+        clearTimeout(t);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const blob = await r.blob();
+        const mime = (blob.type || '').split(';')[0];
+        if (/^(image|video|audio)\//.test(mime)) {
+          nombre = ctx.nombre(mime);
+          ctx.zip.file('assets/' + nombre, blob);
+        }
+      } catch (e) {
+        ctx.fallidos.push(url);
+      }
+      ctx.ext.set(url, nombre);
+      return nombre;
+    }
+
+    // Saca a la carpeta assets los archivos incrustados (data:) y, si se pide, los enlazados por URL.
+    async function procesarTexto(texto, prefijo, ctx, conExternos) {
+      texto = texto.replace(/data:([a-z]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+\/=]+)/gi, (m, mime, b64) => {
+        let nombre = ctx.datos.get(m);
+        if (!nombre) {
+          nombre = ctx.nombre(mime);
+          ctx.datos.set(m, nombre);
+          ctx.zip.file('assets/' + nombre, b64, { base64: true });
+        }
+        return prefijo + 'assets/' + nombre;
+      });
+      if (conExternos) {
+        for (const url of urlsExternas(texto, texto)) {
+          const nombre = await traerExterno(url, ctx);
+          if (nombre) texto = texto.split(url).join(prefijo + 'assets/' + nombre);
+        }
+      }
+      return texto;
+    }
+
+    /* Empaqueta Bootstrap y los iconos dentro del ZIP, para que el sitio
+       exportado no dependa de un CDN. */
+    const BS_VER = '5.3.3', BI_VER = '1.11.3';
+    const CDN_BS = {
+      css: `https://cdn.jsdelivr.net/npm/bootstrap@${BS_VER}/dist/css/bootstrap.min.css`,
+      js:  `https://cdn.jsdelivr.net/npm/bootstrap@${BS_VER}/dist/js/bootstrap.bundle.min.js`,
+      ico: `https://cdn.jsdelivr.net/npm/bootstrap-icons@${BI_VER}/font/bootstrap-icons.min.css`,
+      w2:  `https://cdn.jsdelivr.net/npm/bootstrap-icons@${BI_VER}/font/fonts/bootstrap-icons.woff2`,
+      w1:  `https://cdn.jsdelivr.net/npm/bootstrap-icons@${BI_VER}/font/fonts/bootstrap-icons.woff`
+    };
+
+    async function empaquetarBootstrap(zip) {
+      const pedir = async (url, como) => {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' al descargar ' + url);
+        return como === 'blob' ? r.blob() : r.text();
+      };
+      const [css, js, ico] = await Promise.all([
+        pedir(CDN_BS.css), pedir(CDN_BS.js), pedir(CDN_BS.ico)
+      ]);
+      zip.file('css/bootstrap.min.css', css);
+      zip.file('js/bootstrap.bundle.min.js', js);
+      // Los iconos piden sus tipografías con rutas relativas y un hash de versión:
+      // se dejan en css/fonts/ y se les quita la cadena de consulta.
+      zip.file('css/bootstrap-icons.min.css',
+        ico.replace(/\.\/fonts\//g, 'fonts/')
+           .replace(/(fonts\/bootstrap-icons\.woff2?)\?[^"')]*/g, '$1'));
+      const [w2, w1] = await Promise.all([
+        pedir(CDN_BS.w2, 'blob'), pedir(CDN_BS.w1, 'blob')
+      ]);
+      zip.file('css/fonts/bootstrap-icons.woff2', w2);
+      zip.file('css/fonts/bootstrap-icons.woff', w1);
+    }
+
+    async function exportarZip() {
+      if (typeof JSZip === 'undefined') { alert('No se pudo cargar JSZip (revisa tu conexión).'); return; }
+      const btn = $('#btn-export');
+      const zip = new JSZip();
+      const bsLocal = !!($('#t-bs-local') && $('#t-bs-local').checked);
+      const usados = new Set();
+      const paginas = [];
+
+      editor.Pages.getAll().forEach((page, i) => {
+        const base = i === 0 ? 'index' : slug(nombrePagina(page));
+        let n = base, k = 2;
+        while (usados.has(n)) n = base + '-' + (k++);
+        usados.add(n);
+
+        const comp = page.getMainComponent();
+        let html = editor.getHtml({ component: comp });
+        const css  = editor.getCss({ component: comp }) || '';
+        const js   = editor.getJs ? (editor.getJs({ component: comp }) || '') : '';
+        if (!/<body[\s>]/i.test(html)) html = `<body>${html}</body>`;
+
+        const scripts =
+          (bsLocal
+            ? '<script src="js/bootstrap.bundle.min.js"><\/script>'
+            : `<script src="${CDN_BS.js}"><\/script>`) +
+          '<script src="js/site.js"><\/script>' +
+          (js.trim() ? `<script src="js/${n}.js"><\/script>` : '');
+        html = html.replace(/<\/body>\s*$/i, scripts + '</body>');
+        paginas.push({ n, titulo: nombrePagina(page), html, css, js });
+      });
+
+      const externos = new Set();
+      paginas.forEach(p => urlsExternas(p.html, p.css).forEach(u => externos.add(u)));
+      let conExternos = false;
+      if (externos.size) {
+        conExternos = confirm(
+          `Tu proyecto usa ${externos.size} imagen(es) o archivo(s) enlazados desde internet.\n\n` +
+          '¿Descargarlos a la carpeta assets para que el sitio no dependa de otros servidores?\n\n' +
+          'Aceptar = incluirlos (si el servidor lo permite)\nCancelar = dejarlos como enlaces');
+      }
+
+      zip.file('css/site.css', SITE_CSS + '\n\n/* Identidad visual elegida en el panel «Sitio» del editor.\n   Cambia estos valores y cambia el sitio entero. */\n' + temaCss() + '\n');
+      zip.file('js/site.js', SITE_JS);
+      const ctx = crearContexto(zip);
+      const textoBtn = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Exportando…';
+      try {
+        if (bsLocal) {
+          try {
+            await empaquetarBootstrap(zip);
+          } catch (e) {
+            console.error(e);
+            alert('No se pudieron descargar los archivos de Bootstrap para incluirlos en el ZIP.\n' +
+                  'Revisa tu conexión o desactiva la casilla en la pestaña «Sitio».\n\n' + (e.message || e));
+            return;
+          }
+        }
+        for (const p of paginas) {
+          const html = await procesarTexto(p.html, '', ctx, conExternos);
+          const css  = await procesarTexto(p.css, '../', ctx, conExternos);
+          // Las tipografías del tema siempre se piden; las demás, solo si aparecen en la página.
+          const nombresTema = temaFuentes().map(f => f.nombre);
+          const usadas = FUENTES.filter(f => nombresTema.includes(f.nombre) || (p.css + p.html).includes(f.nombre));
+          const doc = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${p.titulo.replace(/</g, '&lt;')}</title>
+<link href="${bsLocal ? 'css/bootstrap.min.css' : CDN_BS.css}" rel="stylesheet">
+<link href="${bsLocal ? 'css/bootstrap-icons.min.css' : CDN_BS.ico}" rel="stylesheet">
+<link href="${gfUrl(usadas)}" rel="stylesheet">
+<link href="css/site.css" rel="stylesheet">
+<link href="css/${p.n}.css" rel="stylesheet">
+<script>${HEAD_JS}<\/script>
+</head>
+${html}
+</html>`;
+          zip.file(`${p.n}.html`, doc);
+          zip.file(`css/${p.n}.css`, css);
+          if (p.js.trim()) zip.file(`js/${p.n}.js`, p.js);
+        }
+        const blob = await zip.generateAsync({ type: 'blob' });
+        descargar(blob, 'sitio-bootstrap.zip');
+        const nAssets = Object.keys(zip.files).filter(f => f.startsWith('assets/') && !zip.files[f].dir).length;
+        toast(nAssets ? `Sitio exportado con ${nAssets} archivo(s) en assets` : 'Sitio exportado');
+        if (ctx.fallidos.length) {
+          alert('No se pudieron descargar ' + ctx.fallidos.length + ' archivo(s) enlazados (el servidor no permite descargarlos desde el navegador). Se dejaron como enlaces:\n\n' +
+            ctx.fallidos.slice(0, 8).join('\n') + (ctx.fallidos.length > 8 ? '\n…' : ''));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('No se pudo exportar el sitio: ' + (err && err.message ? err.message : err));
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = textoBtn;
+      }
+    }
+    $('#btn-export').onclick = exportarZip;
+
+    /* =====================================================================
+       Eventos del editor
+    ===================================================================== */
+    editor.on('component:selected', () => showTab('right', 'style'));
+
+    editor.on('load', () => {
+      const pages = editor.Pages.getAll();
+      if (pages.length && !pages[0].get('name')) pages[0].set('name', 'index');
+      editor.runCommand('sw-visibility');
+      marcar($('#btn-borders'), true);
+      inyectarEstiloCanvas(editor.Canvas.getDocument());
+      activarAnclasCanvas(editor.Canvas.getDocument());
+      actualizarAncho();
+      renderPages();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor Bootstrap 5</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%224%22 fill=%22%237c5cff%22/%3E%3Cpath d=%22M5 4h4a2 2 0 0 1 0 4H5zm0 4h4.5a2 2 0 0 1 0 4H5z%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%221.4%22/%3E%3C/svg%3E">
+
+  <!-- ===================================================================
+       Dependencias con versión fija.
+       NUNCA quitar el número de versión: sin él se carga siempre la última
+       publicada, y un cambio incompatible de GrapesJS rompe el editor para
+       todo el curso el mismo día, sin haber tocado este archivo.
+
+       Para que el editor funcione sin internet (laboratorio), descarga estos
+       archivos a una carpeta ./vendor/ y reemplaza las URLs por rutas
+       locales. No hace falta cambiar nada más.
+  ==================================================================== -->
+  <link rel="stylesheet" href="https://unpkg.com/grapesjs@0.23.6/dist/css/grapes.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/editor.css">
+
+  <script src="https://unpkg.com/grapesjs@0.23.6"></script>
+  <script src="https://unpkg.com/grapesjs-plugin-forms@2.0.6"></script>
+  <script src="https://unpkg.com/grapesjs-custom-code@1.0.2"></script>
+  <script src="https://unpkg.com/grapesjs-parser-postcss@1.0.3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <div class="app">
+
+    <!-- ===== Barra superior ===== -->
+    <header class="topbar">
+      <div class="brand"><i class="bi bi-bootstrap-fill"></i> Editor Bootstrap 5</div>
+      <button class="tb-btn danger" id="btn-new" title="Borrar todo y volver al estado inicial"><i class="bi bi-trash3"></i> <span class="lbl">Resetear</span></button>
+      <button class="tb-btn" id="btn-open" title="Abrir proyecto (.json)"><i class="bi bi-folder2-open"></i></button>
+      <button class="tb-btn" id="btn-save" title="Descargar copia del proyecto (.json) · Ctrl+Shift+S"><i class="bi bi-save"></i></button>
+      <span class="save-state" id="save-state" title="El proyecto se guarda solo en este navegador"><i class="bi bi-cloud-check"></i> <span>Guardado</span></span>
+      <span class="sep"></span>
+      <button class="tb-btn" id="btn-undo" title="Deshacer (Ctrl+Z)"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button class="tb-btn" id="btn-redo" title="Rehacer (Ctrl+Y)"><i class="bi bi-arrow-clockwise"></i></button>
+      <span class="sep"></span>
+      <button class="tb-btn active" data-device="desktop" title="Escritorio"><i class="bi bi-display"></i></button>
+      <button class="tb-btn" data-device="tablet" title="Tablet (≤ 991px)"><i class="bi bi-tablet"></i></button>
+      <button class="tb-btn" data-device="mobile" title="Móvil (≤ 575px)"><i class="bi bi-phone"></i></button>
+      <span class="bp" id="bp-info" title="Ancho del lienzo y punto de corte de Bootstrap (xs, sm, md, lg, xl, xxl)">—</span>
+      <span class="sep"></span>
+      <button class="tb-btn" id="btn-borders" title="Mostrar bordes de los componentes · Ctrl+B"><i class="bi bi-bounding-box"></i></button>
+      <button class="tb-btn" id="btn-preview" title="Vista previa · Ctrl+P (Esc para salir)"><i class="bi bi-eye"></i> <span class="lbl fija">Vista previa</span></button>
+      <button class="tb-btn" id="btn-code" title="Ver código HTML/CSS"><i class="bi bi-code-slash"></i> <span class="lbl">Código</span></button>
+      <button class="tb-btn" id="btn-templates" title="Plantillas de sitio"><i class="bi bi-stars"></i> <span class="lbl">Plantillas</span></button>
+      <button class="tb-btn" id="btn-import" title="Importar HTML"><i class="bi bi-box-arrow-in-down"></i> <span class="lbl">Importar</span></button>
+      <button class="tb-btn" id="btn-semantica" title="Revisión de HTML semántico"><i class="bi bi-diagram-3"></i> <span class="lbl">Semántica</span><span class="sem-badge" id="sem-count"></span></button>
+      <span class="grow"></span>
+      <button class="tb-btn" id="btn-help" title="Ayuda y atajos de teclado (F1)"><i class="bi bi-question-circle"></i></button>
+      <button class="tb-btn primary" id="btn-export" title="Exportar el sitio completo en ZIP · Ctrl+E"><i class="bi bi-download"></i> <span class="lbl fija">Exportar sitio (ZIP)</span></button>
+    </header>
+
+    <!-- ===== Panel izquierdo ===== -->
+    <aside class="side left">
+      <div class="tabs" data-group="left">
+        <button class="active" data-tab="blocks"><i class="bi bi-plus-square"></i> Componentes</button>
+        <button data-tab="layers"><i class="bi bi-layers"></i> Capas</button>
+        <button data-tab="pages"><i class="bi bi-files"></i> Páginas</button>
+        <button data-tab="sitio"><i class="bi bi-palette2"></i> Sitio</button>
+      </div>
+      <div class="pane active" data-group="left" data-pane="blocks">
+        <div class="search"><input id="q" type="search" placeholder="Buscar componente…"></div>
+        <div id="blocks"></div>
+      </div>
+      <div class="pane" data-group="left" data-pane="layers"><div id="layers"></div></div>
+      <div class="pane" data-group="left" data-pane="pages">
+        <div class="pages-wrap">
+          <div id="pages"></div>
+          <button class="tb-btn primary" id="add-page" style="width:100%;justify-content:center"><i class="bi bi-plus-lg"></i> Nueva página</button>
+          <p class="hint">La primera página se exporta como <b>index.html</b>. Para enlazar páginas, usa en el enlace el nombre del archivo, por ejemplo <b>contacto.html</b>.</p>
+
+          <div class="ov" style="margin:14px -10px 0;border-bottom:0">
+            <div class="ov-title"><i class="bi bi-layout-text-window-reverse"></i> Partes comunes</div>
+            <p class="hint" style="margin:0 0 10px">Toma el menú o el pie de <b>esta</b> página y lo copia en todas las demás, reemplazando el que tengan. Las páginas nuevas los heredan solas.</p>
+            <button class="tb-btn" id="sync-nav" style="width:100%;justify-content:center;margin-bottom:6px"><i class="bi bi-menu-up"></i> Aplicar menú a todas</button>
+            <button class="tb-btn" id="sync-pie" style="width:100%;justify-content:center"><i class="bi bi-window-dock"></i> Aplicar pie a todas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Identidad visual y ajustes del sitio ===== -->
+      <div class="pane" data-group="left" data-pane="sitio">
+        <div class="ov">
+          <div class="ov-title"><i class="bi bi-palette2"></i> Identidad visual</div>
+          <p class="hint" style="margin:0 0 10px">Cambia el aspecto de <b>todo el sitio</b> a la vez. Son las variables de <b>css/site.css</b>: un solo valor repercute en botones, títulos, fondos y tarjetas.</p>
+          <div class="t-presets" id="t-presets"></div>
+
+          <label class="t-lbl">Color principal</label>
+          <div class="ov-row"><input type="color" id="t-primario"><input type="text" class="ov-text" id="t-primario-x" spellcheck="false"></div>
+
+          <label class="t-lbl">Color oscuro (fondos y pie)</label>
+          <div class="ov-row"><input type="color" id="t-osc"><input type="text" class="ov-text" id="t-osc-x" spellcheck="false"></div>
+
+          <label class="t-lbl">Color claro (secciones alternas)</label>
+          <div class="ov-row"><input type="color" id="t-claro"><input type="text" class="ov-text" id="t-claro-x" spellcheck="false"></div>
+
+          <label class="t-lbl">Color de acento (antetítulos y cifras)</label>
+          <div class="ov-row"><input type="color" id="t-acento"><input type="text" class="ov-text" id="t-acento-x" spellcheck="false"></div>
+
+          <label class="t-lbl">Fondo de la página</label>
+          <div class="ov-row"><input type="color" id="t-fondo"><input type="text" class="ov-text" id="t-fondo-x" spellcheck="false"></div>
+          <p class="hint" style="margin:5px 0 0">Cámbialo aquí, no seleccionando el cuerpo de la página en el lienzo: así queda guardado en <b>site.css</b> y se aplica a todas las páginas.</p>
+
+          <label class="t-lbl">Tipografía de títulos</label>
+          <select class="ov-text" id="t-titulos"></select>
+
+          <label class="t-lbl">Tipografía de texto</label>
+          <select class="ov-text" id="t-texto"></select>
+
+          <label class="t-lbl">Redondeo de esquinas · <b id="t-radio-v">16 px</b></label>
+          <input type="range" id="t-radio" min="0" max="28" step="2" style="width:100%;accent-color:#a08bff">
+
+          <button class="tb-btn" id="t-reset" style="margin-top:14px;width:100%;justify-content:center"><i class="bi bi-arrow-counterclockwise"></i> Restablecer identidad</button>
+        </div>
+
+        <div class="ov">
+          <div class="ov-title"><i class="bi bi-diagram-3"></i> HTML semántico</div>
+          <label class="t-check">
+            <input type="checkbox" id="t-semantica" checked>
+            <span>Estructurar el sitio automáticamente</span>
+          </label>
+          <p class="hint">Al soltar bloques, el menú va dentro de <b>&lt;header&gt;</b>, el contenido dentro de <b>&lt;main&gt;</b> y el pie en <b>&lt;footer&gt;</b>; los títulos no saltan niveles y cada campo queda asociado a su etiqueta. Revisa el resultado con el botón <b>Semántica</b> de arriba.</p>
+        </div>
+
+        <div class="ov">
+          <div class="ov-title"><i class="bi bi-box-seam"></i> Exportación</div>
+          <label class="t-check">
+            <input type="checkbox" id="t-bs-local">
+            <span>Incluir Bootstrap e iconos dentro del ZIP</span>
+          </label>
+          <p class="hint">Activado, el sitio exportado no depende de ningún CDN: Bootstrap, los iconos y sus tipografías quedan en las carpetas css y js. Las tipografías de Google se siguen pidiendo a internet y, sin conexión, caen a las de respaldo. Desactivado, el ZIP pesa unos 400 KB menos.</p>
+          <label class="t-check" style="margin-top:12px">
+            <input type="checkbox" id="t-assets-ext" checked>
+            <span>Copiar a assets las imágenes y videos enlazados de internet</span>
+          </label>
+          <p class="hint">Lo que subes desde tu computador siempre va a la carpeta <b>assets</b>. Con esta opción, también se descargan allí las imágenes y videos enlazados de otros sitios (si ese sitio lo permite), para que tu página no dependa de ellos. YouTube y Vimeo siguen como enlaces.</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== Lienzo ===== -->
+    <main id="gjs"></main>
+
+    <!-- ===== Panel derecho ===== -->
+    <aside class="side right">
+      <div class="tabs" data-group="right">
+        <button class="active" data-tab="style"><i class="bi bi-palette"></i> Estilo</button>
+        <button data-tab="traits"><i class="bi bi-gear"></i> Propiedades</button>
+      </div>
+      <div class="pane active" data-group="right" data-pane="style">
+        <div id="selectors"></div>
+        <div class="ov cls" id="clases-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-magic"></i> Explorador de clases</div>
+          <div id="cls-aplicadas"></div>
+          <div class="cls-buscar">
+            <i class="bi bi-search"></i>
+            <input type="search" id="cls-buscar" class="ov-text" placeholder="¿Qué quieres hacer? centrar, sombra, margen…" spellcheck="false" autocomplete="off">
+          </div>
+          <div class="cls-cats" id="cls-cats"></div>
+          <div class="cls-lista" id="cls-lista"></div>
+          <p class="hint">Pasa el ratón sobre una clase para verla en el lienzo; haz clic para añadirla o quitarla.</p>
+        </div>
+        <div class="ov" id="overlay-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-layers-half"></i> Capa de color sobre el fondo</div>
+          <div class="ov-row">
+            <input type="color" id="ov-color" value="#000000" title="Color de la capa">
+            <input type="range" id="ov-op" min="0" max="100" value="0" title="Opacidad de la capa">
+            <span id="ov-val">0%</span>
+            <button class="tb-btn" id="ov-clear" title="Quitar la capa"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <p class="hint">Oscurece o tiñe la imagen de fondo del elemento seleccionado sin afectar su texto. Reemplaza la sombra interior (box-shadow) del elemento.</p>
+        </div>
+        <div class="ov" id="bg-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-image"></i> Imagen de fondo</div>
+          <div class="ov-row ov-botones">
+            <button class="tb-btn primary" id="bg-subir" title="Elegir una imagen de tu computador"><i class="bi bi-upload"></i> Subir desde mi computador</button>
+            <button class="tb-btn" id="bg-galeria" title="Galería: usar una imagen que ya subiste"><i class="bi bi-images"></i></button>
+          </div>
+          <div class="ov-row" style="margin-top:8px">
+            <input type="url" id="bg-url" class="ov-text" placeholder="…o pega un enlace https://" spellcheck="false">
+            <button class="tb-btn" id="bg-apply" title="Usar esta imagen de fondo"><i class="bi bi-check-lg"></i></button>
+            <button class="tb-btn" id="bg-clear" title="Quitar la imagen de fondo"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <p class="ov-origen" id="bg-info"></p>
+        </div>
+        <div id="styles"></div>
+      </div>
+      <div class="pane" data-group="right" data-pane="traits">
+        <div class="ov" id="img-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-image"></i> Imagen</div>
+          <div class="ov-row ov-botones">
+            <button class="tb-btn primary" id="img-subir" title="Elegir una imagen de tu computador"><i class="bi bi-upload"></i> Subir desde mi computador</button>
+            <button class="tb-btn" id="img-galeria" title="Galería: usar una imagen que ya subiste"><i class="bi bi-images"></i></button>
+          </div>
+          <div class="ov-row" style="margin-top:8px">
+            <input type="url" id="img-url" class="ov-text" placeholder="…o pega un enlace https://" spellcheck="false">
+            <button class="tb-btn" id="img-apply" title="Usar esta imagen"><i class="bi bi-check-lg"></i></button>
+          </div>
+          <p class="ov-origen" id="img-info"></p>
+          <p class="hint">También puedes arrastrar una foto desde tu escritorio directamente al lienzo.</p>
+        </div>
+        <div class="ov" id="video-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-camera-video"></i> <span id="video-titulo">Video</span></div>
+          <div class="ov-row ov-botones">
+            <button class="tb-btn primary" id="video-subir" title="Elegir un video de tu computador"><i class="bi bi-upload"></i> Subir desde mi computador</button>
+          </div>
+          <div class="ov-row" style="margin-top:8px">
+            <input type="url" id="video-url" class="ov-text" placeholder="…o YouTube, Vimeo o enlace .mp4" spellcheck="false">
+            <button class="tb-btn" id="video-apply" title="Usar este video"><i class="bi bi-check-lg"></i></button>
+          </div>
+          <p class="ov-origen" id="video-info"></p>
+          <p class="hint">Los archivos de tu computador se guardan en el proyecto y van a la carpeta <b>assets</b> al exportar. Para videos muy pesados es mejor YouTube o Vimeo.</p>
+        </div>
+        <div id="traits"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Botón para salir de la vista previa (solo visible en ese modo) -->
+  <button class="preview-exit" id="preview-exit" title="Salir de la vista previa (Esc)"><i class="bi bi-pencil-square"></i> Volver a editar</button>
+
+  <!-- El orden importa: cada archivo usa lo que definen los anteriores. -->
+  <script src="js/utilidades.js"></script>
+  <script src="js/sitio-recursos.js"></script>
+  <script src="js/almacen.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/bloques.js"></script>
+  <script src="js/paginas.js"></script>
+  <script src="js/semantica.js"></script>
+  <script src="js/clases.js"></script>
+  <script src="js/exportar.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
