@@ -71,7 +71,7 @@ body{font-family:var(--fuente-texto);color:#2b2b2b;background:var(--sitio-fondo)
 .hero{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;overflow:hidden;background-size:cover;background-position:center;background-color:var(--sitio-osc)}
 .hero-interno{min-height:55vh}
 .hero-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0}
-iframe.hero-video{top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100%;transform:translate(-50%,-50%);border:0;pointer-events:none}
+iframe.hero-video{top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100%;transform:translate(-50%,-50%) scale(1.2);border:0;pointer-events:none}
 .overlay{position:absolute;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.45);z-index:1}
 .hero-contenido{position:relative;z-index:2;max-width:880px;padding:7rem 1.5rem 5rem}
 .hero h1{font-family:var(--fuente-titulos);font-weight:600;font-size:clamp(2.4rem,5.5vw,4.6rem);line-height:1.1;text-shadow:0 2px 24px rgba(0,0,0,.35)}
@@ -224,8 +224,56 @@ const SITE_JS = `(function(){
     d.addEventListener('keydown',key);
     d.body.appendChild(lb);
   });
+  (${bucleFondoYT})(window);
 })();
 `;
+
+/* Video de fondo de YouTube: al terminar, YouTube muestra recuadros con otros
+   videos antes de repetir. Se habla con el reproductor por postMessage
+   (enablejsapi=1) y se vuelve al inicio un poco antes del final, así esos
+   recuadros nunca aparecen. Va en site.js y también se usa en el lienzo. */
+function bucleFondoYT(w) {
+  var d = w.document;
+  var esFondoYT = function (f) { return f && f.tagName === 'IFRAME' && f.classList.contains('hero-video') && /youtube(-nocookie)?\.com\/embed\//.test(f.src); };
+  var fondos = function () { return [].filter.call(d.querySelectorAll('iframe.hero-video'), esFondoYT); };
+  var enviar = function (f, msg) { try { f.contentWindow.postMessage(JSON.stringify(msg), '*'); } catch (e) {} };
+  // El reproductor solo responde si se le avisa cuando ya está listo: se repite
+  // el aviso (como hace la API oficial de YouTube) hasta que conteste.
+  var escuchar = function (f) {
+    clearInterval(f._avisos);
+    f._listo = false;
+    var n = 0;
+    f._avisos = setInterval(function () {
+      if (f._listo || ++n > 60 || !f.isConnected) { clearInterval(f._avisos); return; }
+      enviar(f, { event: 'listening', id: 1, channel: 'widget' });
+    }, 250);
+  };
+  // Videos guardados antes de este cambio: se les activa la API
+  fondos().forEach(function (f) {
+    if (!/[?&]enablejsapi=1/.test(f.src)) f.src += (f.src.indexOf('?') < 0 ? '?' : '&') + 'enablejsapi=1';
+    else escuchar(f);
+  });
+  // load no burbujea, pero se captura: sirve también para iframes que se agregan después
+  d.addEventListener('load', function (e) { if (esFondoYT(e.target)) escuchar(e.target); }, true);
+  var alRecibir = function (e) {
+    if (!/youtube/.test(e.origin)) return;
+    var m; try { m = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (x) { return; }
+    var f = fondos().filter(function (x) { return x.contentWindow === e.source; })[0];
+    if (!f || !m) return;
+    f._listo = true;
+    if (!m.info) return;
+    if (m.info.duration) f._duracion = m.info.duration;
+    var t = m.info.currentTime;
+    if (m.info.playerState === 0 || (f._duracion && typeof t === 'number' && f._duracion - t < 1.2)) {
+      enviar(f, { event: 'command', func: 'seekTo', args: [0, true] });
+      enviar(f, { event: 'command', func: 'playVideo', args: [] });
+    }
+  };
+  // YouTube contesta a la ventana que envió el aviso: en el sitio es la misma
+  // página; en el editor, la ventana del editor y no la del lienzo.
+  w.addEventListener('message', alRecibir);
+  if (window !== w) window.addEventListener('message', alRecibir);
+}
 
 /* =====================================================================
    Identidad visual del sitio

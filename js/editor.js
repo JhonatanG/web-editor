@@ -347,6 +347,7 @@ editor.on('canvas:frame:load', (arg) => {
   inyectarEstiloCanvas(doc);
   activarAnclasCanvas(doc);
   bloquearHamburguesa(doc);
+  if (doc && doc.defaultView) bucleFondoYT(doc.defaultView);
   setTimeout(actualizarAncho, 100);
   // Llegamos desde un enlace pagina.html#seccion de la vista previa
   if (saltoPendiente && doc) {
@@ -765,7 +766,7 @@ function analizarVideo(url) {
 // automático, sin sonido, en bucle y sin controles.
 function urlFondo(v) {
   return v.provider === 'yt'
-    ? `https://www.youtube.com/embed/${v.videoId}?autoplay=1&mute=1&loop=1&playlist=${v.videoId}&controls=0&rel=0&playsinline=1&disablekb=1&modestbranding=1`
+    ? `https://www.youtube.com/embed/${v.videoId}?autoplay=1&mute=1&loop=1&playlist=${v.videoId}&controls=0&rel=0&playsinline=1&disablekb=1&modestbranding=1&iv_load_policy=3&enablejsapi=1`
     : `https://player.vimeo.com/video/${v.videoId}?background=1&autoplay=1&loop=1&muted=1`;
 }
 // El video de fondo cambia de etiqueta según el origen: <iframe> para
