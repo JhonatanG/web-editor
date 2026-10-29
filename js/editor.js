@@ -828,7 +828,13 @@ function ponerVideo(c, src, nombre) {
     if (!c || !c.is) return null;
     if (c.is('video') || c.is('video-fondo')) return c;
     if (c === editor.getWrapper()) return null;
-    return buscarComp(c, x => x.is && x.is('video-fondo'))[0] || null;
+    const esFondo = x => x.is && x.is('video-fondo');
+    const dentro = buscarComp(c, esFondo)[0];
+    if (dentro) return dentro;
+    // Al hacer clic en el hero se selecciona la capa oscura (.overlay) o el
+    // contenido, que están AL LADO del video, no lo contienen: se busca en los hermanos.
+    const padre = c.parent();
+    return (padre && padre !== editor.getWrapper() && padre.components().find(esFondo)) || null;
   };
   const srcDe = c => c.is('video-fondo') ? (c.getAttributes().src || '') : (c.get('src') || '');
   const mostrar = () => {
