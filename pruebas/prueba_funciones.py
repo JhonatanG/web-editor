@@ -49,7 +49,7 @@ with sync_playwright() as p:
     print('Código, ayuda, bordes')
     pg.click('#btn-code')
     pg.wait_for_timeout(800)
-    check('ventana de código abre', pg.locator('.CodeMirror').count() >= 2)
+    check('ventana de código abre con sus pestañas', pg.locator('.gjs-mdl-content .cod-tab').count() >= 3 and pg.locator('.gjs-mdl-content .cod-pane.active .cod-editor').count() == 1)
     E("editor.Modal.close()")
     pg.keyboard.press('F1')
     pg.wait_for_timeout(300)

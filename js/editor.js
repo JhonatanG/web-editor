@@ -42,6 +42,22 @@ function tiposPropios(ed) {
     }
   });
 
+  // Mapa de Google: propiedades en español y título accesible para el <iframe>
+  dc.addType('map', {
+    model: {
+      defaults: {
+        attributes: { title: 'Mapa de ubicación', loading: 'lazy' },
+        traits: [
+          { type: 'text', name: 'address', label: 'Dirección o lugar', placeholder: 'Ej.: Laguna Quilotoa, Ecuador', changeProp: true },
+          { type: 'select', name: 'mapType', label: 'Tipo de mapa', changeProp: true,
+            options: [{ id: 'q', value: 'q', name: 'Calles' }, { id: 'w', value: 'w', name: 'Satélite' }] },
+          { type: 'number', name: 'zoom', label: 'Acercamiento (1 a 20)', min: 1, max: 20, changeProp: true },
+          'title'
+        ]
+      }
+    }
+  });
+
   // Video de fondo del hero (clase hero-video): <video> para .mp4 o archivos,
   // <iframe> para YouTube y Vimeo (un <video> no puede reproducir esos enlaces)
   ed.DomComponents.addType('video-fondo', {
@@ -260,7 +276,10 @@ function inyectarEstiloCanvas(doc) {
       '\n.navbar:not([class*="navbar-expand"]) .navbar-collapse.ed-abierto{display:block !important;}' +
       '\n@media (max-width:767.98px){.menu-lateral.ed-abierto{display:block !important;}}' +
       '\n.ed-abierto{outline:2px dashed #a08bff;outline-offset:-2px}' +
-      '\n.nav-transparente.fixed-top{position:absolute !important;}';
+      '\n.nav-transparente.fixed-top{position:absolute !important;}' +
+      // «Ver más» (stretched-link) estira su zona de clic sobre toda la tarjeta y
+      // no dejaba hacer doble clic en el título ni en el texto para editarlos.
+      '\n.stretched-link::after{pointer-events:none !important}';
     doc.head.appendChild(st);
   }
   let ss = doc.getElementById('ed-site');
@@ -270,13 +289,14 @@ function inyectarEstiloCanvas(doc) {
     ss.textContent = SITE_CSS;
     doc.head.appendChild(ss);
   }
-  // El tema va después de site.css para que sus variables ganen.
+  // El tema va después de site.css para que sus variables ganen: si ya
+  // existía (pintarTema pudo crearlo antes), se mueve al final.
   let tv = doc.getElementById('ed-tema');
   if (!tv) {
     tv = doc.createElement('style');
     tv.id = 'ed-tema';
-    doc.head.appendChild(tv);
   }
+  doc.head.appendChild(tv);
   tv.textContent = temaCss();
   // GrapesJS bloquea los clics en videos e iframes (gjs-no-pointer) para poder
   // seleccionarlos; en la vista previa se reactivan para poder reproducirlos.
@@ -302,8 +322,8 @@ function pintarTema() {
     if (!tv) {
       tv = doc.createElement('style');
       tv.id = 'ed-tema';
-      doc.head.appendChild(tv);
     }
+    doc.head.appendChild(tv);   // siempre el último, por encima de site.css
     tv.textContent = temaCss();
   } catch (e) { /* el lienzo aún no está listo */ }
 }
@@ -334,10 +354,45 @@ function seguirEnlace(doc, destino) {
   saltoPendiente = hash || '';
   editor.Pages.select(pag);
 }
+function ampliarFoto(doc, img) {
+  const lb = doc.createElement('div');
+  lb.className = 'lb';
+  const big = doc.createElement('img');
+  big.src = img.currentSrc || img.src;
+  big.alt = img.alt || '';
+  lb.appendChild(big);
+  const tecla = (ev) => { if (ev.key === 'Escape') cerrar(); };
+  const cerrar = () => { lb.remove(); doc.removeEventListener('keydown', tecla); };
+  lb.addEventListener('click', (ev) => { ev.stopPropagation(); cerrar(); });
+  doc.addEventListener('keydown', tecla);
+  doc.body.appendChild(lb);
+}
+/* En un botón la barra espaciadora «pulsa» el botón (abre o cierra un acordeón)
+   en vez de escribir un espacio. Mientras se edita su texto, se escribe el espacio. */
+function espaciosEnBotones(doc) {
+  if (!doc || doc.__espacios) return;
+  doc.__espacios = true;
+  doc.addEventListener('keydown', (ev) => {
+    if (ev.key !== ' ' || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    const t = ev.target;
+    if (!t || !t.isContentEditable || !t.closest || !t.closest('button, summary')) return;
+    ev.preventDefault();
+    doc.execCommand('insertText', false, ' ');
+  }, true);
+}
 function activarAnclasCanvas(doc) {
   if (!doc || doc.__anclasListas) return;
   doc.__anclasListas = true;
   doc.addEventListener('click', (ev) => {
+    // El script del sitio no corre en el lienzo: la ampliación de la galería
+    // se hace aquí para poder probarla en «Vista previa».
+    const foto = ev.target && ev.target.closest ? ev.target.closest('.galeria-lightbox img') : null;
+    if (foto && document.body.classList.contains('is-preview')) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      ampliarFoto(doc, foto);
+      return;
+    }
     const t = ev.target && ev.target.closest ? ev.target.closest('a[href], [data-ir-a]') : null;
     if (!t) return;
     const destino = (t.getAttribute('data-ir-a') || t.getAttribute('href') || '').trim();
@@ -363,6 +418,7 @@ editor.on('canvas:frame:load', (arg) => {
   const doc = (win && win.document) || (el && el.contentDocument);
   inyectarEstiloCanvas(doc);
   activarAnclasCanvas(doc);
+  espaciosEnBotones(doc);
   bloquearHamburguesa(doc);
   if (doc && doc.defaultView) bucleFondoYT(doc.defaultView);
   setTimeout(actualizarAncho, 100);
@@ -418,13 +474,25 @@ function bloquearHamburguesa(doc) {
   // instante. GrapesJS recibe el clic normal y selecciona la hamburguesa.
   win.addEventListener('click', (ev) => {
     if (document.body.classList.contains('is-preview')) return;
-    const tg = ev.target && ev.target.closest ? ev.target.closest('.navbar-toggler[data-bs-toggle]') : null;
+    // Igual con las preguntas del acordeón: el doble clic para editarlas lo abría
+    // y cerraba, y la respuesta quedaba oculta sin poder editarla.
+    const tg = ev.target && ev.target.closest ? ev.target.closest('.navbar-toggler[data-bs-toggle], .accordion-button[data-bs-toggle]') : null;
     if (!tg) return;
     const v = tg.getAttribute('data-bs-toggle');
     tg.removeAttribute('data-bs-toggle');
     setTimeout(() => tg.setAttribute('data-bs-toggle', v), 0);
   }, true);
 }
+
+// Acordeón en el diseño: al seleccionar una pregunta o algo de su respuesta, esa
+// respuesta se muestra para poder editarla (solo en el lienzo; no cambia el HTML).
+editor.on('component:selected', (c) => {
+  if (document.body.classList.contains('is-preview')) return;
+  const el = c && c.getEl && c.getEl();
+  const item = el && el.closest && el.closest('.accordion-item');
+  const panel = item && item.querySelector('.accordion-collapse');
+  if (panel) panel.classList.add('show');
+});
 
 // Al salir de la vista previa se pliegan los menús y desplegables que el
 // usuario abrió probando el sitio; si no, se quedaban abiertos en el diseño.

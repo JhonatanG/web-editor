@@ -40,7 +40,11 @@ function vistaPrevia(on) {
   } catch (err) { /* sin efecto */ }
   const doc = editor.Canvas.getDocument();
   if (on) doc && doc.querySelectorAll('.ed-abierto').forEach(el => el.classList.remove('ed-abierto'));
-  else { cerrarAbiertos(doc); setTimeout(abrirMenuDeSeleccion, 400); }
+  else {
+    cerrarAbiertos(doc);
+    if (doc) doc.querySelectorAll('.lb').forEach(el => el.remove());   // foto ampliada en la vista previa
+    setTimeout(abrirMenuDeSeleccion, 400);
+  }
   // El lienzo cambia de ancho (con o sin paneles): se recalcula la escala
   setTimeout(() => { ajustarEscala(); editor.refresh(); }, 60);
 }

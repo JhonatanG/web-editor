@@ -40,8 +40,13 @@ function nombresConocidos(html) {
   return m;
 }
 
+// Nombres cortos: Windows no abre rutas de más de 260 caracteres y el sitio suele
+// descomprimirse en carpetas ya largas (OneDrive…). Se quita el «1280px-» de las
+// miniaturas de Wikimedia y se recorta a 40 caracteres.
 const limpioArchivo = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+  .toLowerCase().replace(/^\d+px-/, '').replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '')
+  .slice(0, 40).replace(/-+$/, '');
 // «foto.jpg» de https://sitio.com/img/foto.jpg?w=800 (vacío si la URL no trae nombre)
 const nombreDeUrl = (url) => {
   try {

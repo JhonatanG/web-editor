@@ -68,6 +68,8 @@ function duplicarPagina(p) {
     component: html,
     seoTitulo: p.get('seoTitulo') || '', seoDesc: p.get('seoDesc') || ''
   });
+  const nuevos = copia.getMainComponent().components();
+  if (raiz) raiz.components().forEach((c, i) => copiarEstilos(c, nuevos.at(i)));
   editor.Pages.select(copia);
   marcarActivo(copia.getMainComponent(), archivoDePagina(copia));
   aplicarSemantica(copia.getMainComponent());
@@ -166,8 +168,28 @@ function htmlComun(pred) {
   return encontrados.length ? encontrados[0].toHTML() : null;
 }
 
+// Lo que se cambia en el panel de estilos se guarda como reglas #id, aparte del
+// HTML. La copia de otra página recibe ids nuevos (#pie-2…), así que sin esto
+// perdía la foto de fondo, los colores y hasta el z-index que deja el texto del
+// pie por encima de su capa oscura. Se duplican las reglas de cada pieza, con
+// sus versiones para tablet/móvil y estados como :hover.
+function copiarEstilos(orig, copia) {
+  if (!orig || !copia || !orig.getId || !copia.getId) return;
+  const id = orig.getId(), nuevo = copia.getId();
+  if (id && nuevo && id !== nuevo) {
+    editor.Css.getRules('#' + id).forEach((r) => {
+      const estado = r.get('state');
+      editor.Css.setRule('#' + nuevo + (estado ? ':' + estado : ''), { ...r.getStyle() },
+        { atRuleType: r.get('atRuleType') || '', atRuleParams: r.get('mediaText') || '' });
+    });
+  }
+  const hijos = copia.components();
+  orig.components().forEach((h, i) => copiarEstilos(h, hijos.at(i)));
+}
+
 function propagar(pred, alInicio, etiqueta) {
   const html = htmlComun(pred);
+  const origen = buscarComp(editor.getWrapper(), pred)[0];
   if (!html) {
     alert(`Esta página no tiene ${etiqueta.toLowerCase()}.\nColócalo primero aquí y vuelve a pulsar el botón.`);
     return;
@@ -187,9 +209,9 @@ function propagar(pred, alInicio, etiqueta) {
       const padre = primero.parent() || raiz;
       const idx = primero.index();
       previos.forEach(x => x.remove());
-      padre.append(html, { at: idx });
+      copiarEstilos(origen, padre.append(html, { at: idx })[0]);
     } else {
-      raiz.append(html, alInicio ? { at: 0 } : {});
+      copiarEstilos(origen, raiz.append(html, alInicio ? { at: 0 } : {})[0]);
     }
     marcarActivo(raiz, archivoDePagina(p));
     aplicarSemantica(raiz);
@@ -212,9 +234,16 @@ $('#add-page').onclick = () => {
   // La página nueva hereda el menú y el pie de la página actual
   const nav = htmlComun(ES_NAV) || '';
   const pie = htmlComun(ES_PIE) || '';
-  const cuerpo = `<main id="contenido" class="container py-5"${/fixed-top/.test(nav) ? ' style="margin-top:90px"' : ''}><h1>${SIN_HTML(nombre)}</h1><p class="lead text-secondary">Reemplaza este texto por el contenido de la página.</p></main>`;
+  // <main> sin «container»: así las secciones que se suelten dentro ocupan todo
+  // el ancho, como en la página de inicio. El margen para el menú fijo va en la
+  // sección de ejemplo, y desaparece con ella.
+  const cuerpo = `<main id="contenido"><section class="container py-5"${/fixed-top/.test(nav) ? ' style="margin-top:90px"' : ''}><h1>${SIN_HTML(nombre)}</h1><p class="lead text-secondary">Reemplaza este texto por el contenido de la página.</p></section></main>`;
 
+  const navOrig = buscarComp(editor.getWrapper(), ES_NAV)[0];
+  const pieOrig = buscarComp(editor.getWrapper(), ES_PIE)[0];
   const page = editor.Pages.add({ name: nombre, component: nav + cuerpo + pie });
+  copiarEstilos(navOrig, buscarComp(page.getMainComponent(), ES_NAV)[0]);
+  copiarEstilos(pieOrig, buscarComp(page.getMainComponent(), ES_PIE)[0]);
   editor.Pages.select(page);
   marcarActivo(page.getMainComponent(), archivoDePagina(page));
   aplicarSemantica(page.getMainComponent());

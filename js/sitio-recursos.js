@@ -72,6 +72,8 @@ body{font-family:var(--fuente-texto);color:#2b2b2b;background:var(--sitio-fondo)
 .hero-interno{min-height:55vh}
 .hero-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0}
 iframe.hero-video{top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100%;transform:translate(-50%,-50%) scale(1.2);border:0;pointer-events:none}
+iframe.hero-video[src*="youtube"]{opacity:0;transition:opacity .8s ease}
+iframe.hero-video[src*="youtube"].yt-ve{opacity:1}
 .overlay{position:absolute;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.45);z-index:1}
 .hero-contenido{position:relative;z-index:2;max-width:880px;padding:7rem 1.5rem 5rem}
 .hero h1{font-family:var(--fuente-titulos);font-weight:600;font-size:clamp(2.4rem,5.5vw,4.6rem);line-height:1.1;text-shadow:0 2px 24px rgba(0,0,0,.35)}
@@ -127,6 +129,8 @@ iframe.hero-video{top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh
 .galeria-item:hover img{transform:scale(1.08)}
 .lb{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:2rem}
 .lb img{max-width:100%;max-height:100%;border-radius:.5rem}
+/* En pantallas angostas el espacio grande entre columnas (g-5) se salía de la pantalla */
+@media (max-width:767.98px){.row.g-5,.row.gx-5{--bs-gutter-x:1.5rem}}
 .whatsapp-flotante{position:fixed;right:22px;bottom:22px;width:58px;height:58px;border-radius:50%;background:#25d366;color:#fff;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.3);z-index:1030;text-decoration:none;transition:transform .3s}
 .whatsapp-flotante:hover{transform:scale(1.1);color:#fff}
 
@@ -231,7 +235,10 @@ const SITE_JS = `(function(){
 /* Video de fondo de YouTube: al terminar, YouTube muestra recuadros con otros
    videos antes de repetir. Se habla con el reproductor por postMessage
    (enablejsapi=1) y se vuelve al inicio un poco antes del final, así esos
-   recuadros nunca aparecen. Va en site.js y también se usa en el lienzo. */
+   recuadros nunca aparecen. Además, mientras carga YouTube muestra sus botones
+   (anterior, pausa, siguiente): el video queda invisible (se ve la imagen del
+   hero) y aparece con un fundido solo cuando ya se está reproduciendo.
+   Va en site.js y también se usa en el lienzo. */
 function bucleFondoYT(w) {
   var d = w.document;
   var esFondoYT = function (f) { return f && f.tagName === 'IFRAME' && f.classList.contains('hero-video') && /youtube(-nocookie)?\.com\/embed\//.test(f.src); };
@@ -239,9 +246,20 @@ function bucleFondoYT(w) {
   var enviar = function (f, msg) { try { f.contentWindow.postMessage(JSON.stringify(msg), '*'); } catch (e) {} };
   // El reproductor solo responde si se le avisa cuando ya está listo: se repite
   // el aviso (como hace la API oficial de YouTube) hasta que conteste.
+  var mostrar = function (f, si) {
+    clearTimeout(f._fundido);
+    if (si) f._fundido = setTimeout(function () { f.classList.add('yt-ve'); }, 600);
+    else f.classList.remove('yt-ve');
+  };
   var escuchar = function (f) {
     clearInterval(f._avisos);
     f._listo = false;
+    // Se oculta solo si cambió el video: el «load» puede llegar después de que
+    // YouTube ya avisó que reproduce, y no lo vuelve a avisar.
+    if (f._srcVisto !== f.src) { f._srcVisto = f.src; f._estado = null; mostrar(f, false); }
+    // Si el reproductor nunca informa su estado (sin la API), se muestra igual a los 6 s
+    clearTimeout(f._respaldo);
+    f._respaldo = setTimeout(function () { if (f._estado == null) mostrar(f, true); }, 6000);
     var n = 0;
     f._avisos = setInterval(function () {
       if (f._listo || ++n > 60 || !f.isConnected) { clearInterval(f._avisos); return; }
@@ -261,6 +279,11 @@ function bucleFondoYT(w) {
     var f = fondos().filter(function (x) { return x.contentWindow === e.source; })[0];
     if (!f || !m) return;
     f._listo = true;
+    // Estados de YouTube: 1 reproduciendo; -1, 0, 2 y 5 sin reproducir (botones a la vista)
+    var estado = m.event === 'onStateChange' ? m.info : (m.info && typeof m.info.playerState === 'number' ? m.info.playerState : null);
+    if (estado !== null) f._estado = estado;
+    if (estado === 1) mostrar(f, true);
+    else if (estado === -1 || estado === 0 || estado === 2 || estado === 5) mostrar(f, false);
     if (!m.info) return;
     if (m.info.duration) f._duracion = m.info.duration;
     var t = m.info.currentTime;
