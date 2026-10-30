@@ -187,20 +187,37 @@ const editor = grapesjs.init({
   const UTIL = {
     'background-color': /^(bg-(?!opacity|gradient).+|text-bg-.+)$/,
     'color': /^(text-(primary|secondary|success|danger|warning|info|light|dark|body|muted|white|black|body-secondary|body-tertiary|body-emphasis|.+-emphasis)|link-.+|text-bg-.+)$/,
-    'border-color': /^border-(primary|secondary|success|danger|warning|info|light|dark|white|black)$/
+    'border-color': /^border-(primary|secondary|success|danger|warning|info|light|dark|white|black)$/,
+    'border-width': /^border-[1-5]$/
   };
-  const liberar = (comp, prop) => {
-    const re = UTIL[prop];
-    if (!re || !comp || !comp.getClasses) return;
-    const v = comp.getStyle && comp.getStyle()[prop];
-    if (!v) return;
-    comp.getClasses().filter(c => re.test(c)).forEach(c => comp.removeClass(c));
+  // border, border-bottom… pintan con var(--bs-border-*) y !important: el
+  // valor del panel solo llega a esos bordes copiándolo en la variable.
+  const LADO = /^border(-top|-bottom|-start|-end)?$/;
+  const VAR = { 'border-color': '--bs-border-color', 'border-width': '--bs-border-width', 'border-style': '--bs-border-style' };
+  const aVariables = (comp) => {
+    if (!comp.getClasses().some(c => LADO.test(c))) return;
+    const st = comp.getStyle(), nuevo = { ...st };
+    Object.entries(VAR).forEach(([prop, nom]) => {
+      if (st[prop]) nuevo[nom] = st[prop]; else delete nuevo[nom];
+    });
+    if (JSON.stringify(nuevo) !== JSON.stringify(st)) comp.setStyle(nuevo);
   };
-  editor.on('component:styleUpdate', (comp, prop) => liberar(comp, prop));
-  editor.on('style:property:update', (arg) => {
-    const p = arg && arg.property ? arg.property : arg;
-    const name = p && (p.getProperty ? p.getProperty() : (p.get ? p.get('property') : p));
-    liberar(editor.getSelected(), name);
+  // Los eventos no siempre dicen qué propiedad cambió: se revisan todas
+  const liberar = (comp) => {
+    if (!comp || !comp.getClasses || !comp.getStyle) return;
+    const st = comp.getStyle();
+    Object.entries(UTIL).forEach(([prop, re]) => {
+      if (st[prop]) comp.getClasses().filter(c => re.test(c)).forEach(c => comp.removeClass(c));
+    });
+    aVariables(comp);
+  };
+  editor.on('component:styleUpdate', comp => liberar(comp));
+  editor.on('style:property:update', () => liberar(editor.getSelected()));
+  // «Borde» escribe grosor, estilo y color por separado: elegir solo el color
+  // ya no pone «border: 0 solid …», que borraba los bordes que el elemento tenía.
+  editor.on('load', () => {
+    const b = editor.StyleManager.getProperty('decorations', 'border');
+    if (b) b.set('detached', true);
   });
 })();
 

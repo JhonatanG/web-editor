@@ -57,12 +57,12 @@ body{font-family:var(--fuente-texto);color:#2b2b2b;background:var(--sitio-fondo)
 .nav-transparente{padding:1rem 0;transition:background-color .35s,box-shadow .35s,padding .35s;background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0))}
 .nav-transparente.nav-solido{background:var(--sitio-osc);box-shadow:0 4px 18px rgba(0,0,0,.25);padding:.55rem 0}
 .nav-transparente .navbar-brand{font-family:var(--fuente-titulos);font-size:1.5rem;font-weight:700;letter-spacing:.04em;color:#fff}
-.nav-transparente .nav-link{color:rgba(255,255,255,.88);font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.5rem .65rem;white-space:nowrap}
+.nav-transparente .nav-link{color:rgba(255,255,255,.88);font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.5rem .65rem;white-space:nowrap;border-bottom:2px solid transparent}
 .nav-transparente .nav-link:hover,.nav-transparente .nav-link.active{color:#fff}
-.nav-transparente .nav-link.active{box-shadow:inset 0 -2px 0 var(--sitio-acento)}
+.nav-transparente .nav-link.active{border-bottom-color:var(--sitio-acento)}
 @media (max-width:1199.98px){
   .nav-transparente .navbar-collapse{background:var(--sitio-osc);margin-top:.75rem;padding:1rem;border-radius:.75rem}
-  .nav-transparente .nav-link.active{box-shadow:none;color:var(--sitio-acento)}
+  .nav-transparente .nav-link.active{border-bottom-color:transparent;color:var(--sitio-acento)}
 }
 .barra-superior{background:var(--sitio-osc);color:rgba(255,255,255,.85);font-size:.78rem;padding:.5rem 0}
 .barra-superior a{color:inherit;text-decoration:none;margin-left:1rem}
