@@ -31,3 +31,23 @@ const almacenIDB = (ed) => {
     }
   });
 };
+
+/* ---------- Datos del proyecto que no son de GrapesJS ----------
+   Viajan dentro del proyecto (IndexedDB y .json):
+     __formato      versión del formato (los .json anteriores no la tienen: 1)
+     __publicacion  sitio, destino de los formularios… (nunca claves)        */
+const FORMATO_PROYECTO = 2;
+const PUB_DEF = { slug: '', nombre: '', formDestino: 'servicio', formUrl: '', formCorreo: '' };
+let PUB = { ...PUB_DEF };
+function leerPublicacion(d) {
+  const p = (d && typeof d.__publicacion === 'object' && d.__publicacion) || {};
+  PUB = { ...PUB_DEF };
+  Object.keys(PUB_DEF).forEach(k => { if (typeof p[k] === 'string') PUB[k] = p[k].slice(0, 300); });
+  if (!['servicio', 'url', 'correo'].includes(PUB.formDestino)) PUB.formDestino = 'servicio';
+}
+const alGuardarProyecto = (d) => ({ ...d, __formato: FORMATO_PROYECTO, __publicacion: { ...PUB } });
+const alCargarProyecto = (d) => {
+  leerPublicacion(d);
+  if (d) { delete d.__publicacion; delete d.__formato; }
+  return d;
+};

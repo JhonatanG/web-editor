@@ -155,97 +155,44 @@ async function empaquetarBootstrap(zip) {
   zip.file('css/fonts/bootstrap-icons.woff', w1);
 }
 
+// El ZIP sale del mismo generador que la vista previa y la publicación (js/generador.js)
+const opcionesExportacion = () => ({
+  bsLocal: !!($('#t-bs-local') && $('#t-bs-local').checked),
+  // Lo subido desde el computador siempre va a assets; lo de internet, si está activado en «Sitio»
+  conExternos: !!($('#t-assets-ext') && $('#t-assets-ext').checked)
+});
 async function exportarZip() {
   if (typeof JSZip === 'undefined') { alert('No se pudo cargar JSZip (revisa tu conexión).'); return; }
   const btn = $('#btn-export');
-  const zip = new JSZip();
-  const bsLocal = !!($('#t-bs-local') && $('#t-bs-local').checked);
-  const usados = new Set();
-  const paginas = [];
-
-  editor.Pages.getAll().forEach((page) => {
-    // El mismo nombre de archivo que usan los enlaces del menú («Ir a»)
-    const base = archivoDePagina(page).replace(/\.html$/, '');
-    let n = base, k = 2;
-    while (usados.has(n)) n = base + '-' + (k++);
-    usados.add(n);
-
-    const comp = page.getMainComponent();
-    let html = editor.getHtml({ component: comp });
-    const css  = editor.getCss({ component: comp }) || '';
-    const js   = editor.getJs ? (editor.getJs({ component: comp }) || '') : '';
-    if (!/<body[\s>]/i.test(html)) html = `<body>${html}</body>`;
-
-    const scripts =
-      (bsLocal
-        ? '<script src="js/bootstrap.bundle.min.js"><\/script>'
-        : `<script src="${CDN_BS.js}"><\/script>`) +
-      '<script src="js/site.js"><\/script>' +
-      (js.trim() ? `<script src="js/${n}.js"><\/script>` : '');
-    html = html.replace(/<\/body>\s*$/i, scripts + '</body>');
-    // Si hay <main id>, el primer Tab ofrece saltar el menú e ir al contenido
-    const idMain = (html.match(/<main\b[^>]*\bid="([^"]+)"/i) || [])[1];
-    if (idMain) html = html.replace(/<body\b[^>]*>/i, m => m + `<a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 p-2 bg-white text-dark rounded" style="z-index:2000" href="#${idMain}">Saltar al contenido</a>`);
-    paginas.push({ n, titulo: page.get('seoTitulo') || nombrePagina(page), desc: page.get('seoDesc') || '', html, css, js });
-  });
-
-  // Lo subido desde el computador siempre va a assets; lo de internet, si está activado en «Sitio»
-  const conExternos = !!($('#t-assets-ext') && $('#t-assets-ext').checked);
-
-  zip.file('css/site.css', SITE_CSS + '\n\n/* Identidad visual elegida en el panel «Sitio» del editor.\n   Cambia estos valores y cambia el sitio entero. */\n' + temaCss() + '\n');
-  zip.file('js/site.js', SITE_JS);
-  const ctx = crearContexto(zip);
-  paginas.forEach((p) => {
-    nombresConocidos(p.html).forEach((n, src) => ctx.conocidos.set(src, n));
-    p.html = p.html.replace(/\sdata-archivo="[^"]*"/gi, '');
-  });
   const textoBtn = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Exportando…';
   try {
-    if (bsLocal) {
-      try {
-        await empaquetarBootstrap(zip);
-      } catch (e) {
+    const o = opcionesExportacion();
+    let sitio;
+    try {
+      sitio = await generarSitio({ modo: 'zip', ...o });
+    } catch (e) {
+      if (o.bsLocal && /bootstrap/i.test(String(e && e.message))) {
         console.error(e);
         alert('No se pudieron descargar los archivos de Bootstrap para incluirlos en el ZIP.\n' +
               'Revisa tu conexión o desactiva la casilla en la pestaña «Sitio».\n\n' + (e.message || e));
         return;
       }
+      throw e;
     }
-    for (const p of paginas) {
-      const html = await procesarTexto(p.html, '', ctx, conExternos);
-      const css  = await procesarTexto(p.css, '../', ctx, conExternos);
-      // Las tipografías del tema siempre se piden; las demás, solo si aparecen en la página.
-      const nombresTema = temaFuentes().map(f => f.nombre);
-      const usadas = FUENTES.filter(f => nombresTema.includes(f.nombre) || (p.css + p.html).includes(f.nombre));
-      const doc = `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${SIN_HTML(p.titulo)}</title>${p.desc ? `
-<meta name="description" content="${SIN_HTML(p.desc)}">` : ''}
-<link href="${bsLocal ? 'css/bootstrap.min.css' : CDN_BS.css}" rel="stylesheet">
-<link href="${bsLocal ? 'css/bootstrap-icons.min.css' : CDN_BS.ico}" rel="stylesheet">
-<link href="${gfUrl(usadas)}" rel="stylesheet">
-<link href="css/site.css" rel="stylesheet">
-<link href="css/${p.n}.css" rel="stylesheet">
-<script>${HEAD_JS}<\/script>
-</head>
-${html}
-</html>`;
-      zip.file(`${p.n}.html`, doc);
-      zip.file(`css/${p.n}.css`, css);
-      if (p.js.trim()) zip.file(`js/${p.n}.js`, p.js);
-    }
+    const zip = new JSZip();
+    sitio.archivos.forEach((a, ruta) => {
+      if (a.base64 !== undefined) zip.file(ruta, a.base64, { base64: true });
+      else zip.file(ruta, a.blob !== undefined ? a.blob : a.texto);
+    });
     const blob = await zip.generateAsync({ type: 'blob' });
     descargar(blob, 'sitio-bootstrap.zip');
-    const nAssets = Object.keys(zip.files).filter(f => f.startsWith('assets/') && !zip.files[f].dir).length;
+    const nAssets = [...sitio.archivos.keys()].filter(f => f.startsWith('assets/')).length;
     toast(nAssets ? `Sitio exportado con ${nAssets} archivo(s) en assets` : 'Sitio exportado');
-    if (ctx.fallidos.length) {
-      alert('No se pudieron descargar ' + ctx.fallidos.length + ' archivo(s) enlazados (el servidor no permite descargarlos desde el navegador). Se dejaron como enlaces:\n\n' +
-        ctx.fallidos.slice(0, 8).join('\n') + (ctx.fallidos.length > 8 ? '\n…' : ''));
+    if (sitio.fallidos.length) {
+      alert('No se pudieron descargar ' + sitio.fallidos.length + ' archivo(s) enlazados (el servidor no permite descargarlos desde el navegador). Se dejaron como enlaces:\n\n' +
+        sitio.fallidos.slice(0, 8).join('\n') + (sitio.fallidos.length > 8 ? '\n…' : ''));
     }
   } catch (err) {
     console.error(err);

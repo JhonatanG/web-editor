@@ -31,6 +31,7 @@
 
     <!-- ===== Barra superior ===== -->
     <header class="topbar">
+      <button class="tb-btn" id="btn-panel-izq" title="Plegar o desplegar el panel izquierdo · Ctrl+[" aria-pressed="false" aria-controls="panel-izq"><i class="bi bi-layout-sidebar"></i></button>
       <div class="brand"><i class="bi bi-bootstrap-fill"></i> Editor Bootstrap 5</div>
       <button class="tb-btn danger" id="btn-new" title="Borrar todo y volver al estado inicial"><i class="bi bi-trash3"></i> <span class="lbl">Resetear</span></button>
       <button class="tb-btn" id="btn-open" title="Abrir proyecto (.json)"><i class="bi bi-folder2-open"></i></button>
@@ -44,6 +45,14 @@
       <button class="tb-btn" data-device="tablet" title="Tablet (≤ 991px)"><i class="bi bi-tablet"></i></button>
       <button class="tb-btn" data-device="mobile" title="Móvil (≤ 575px)"><i class="bi bi-phone"></i></button>
       <span class="bp" id="bp-info" title="Ancho del lienzo y punto de corte de Bootstrap (xs, sm, md, lg, xl, xxl)">—</span>
+      <label class="ancho-ctl" title="Ancho exacto de la vista (px). También puedes arrastrar el borde derecho del lienzo.">
+        <i class="bi bi-arrows"></i><input id="ancho-lienzo" type="number" min="320" max="2560" step="1" inputmode="numeric" aria-label="Ancho de la vista previa en píxeles"><span>px</span>
+      </label>
+      <div class="rango-ctl">
+        <button class="tb-btn rango" id="rango-estilos" aria-haspopup="menu" aria-expanded="false" title="Los cambios de estilo se guardan para este rango de pantallas">
+          <i class="bi bi-brush"></i> <span id="rango-txt">Estilos: Escritorio</span> <i class="bi bi-chevron-down"></i></button>
+        <div class="rango-menu" id="rango-menu" role="menu" hidden></div>
+      </div>
       <span class="sep"></span>
       <button class="tb-btn" id="btn-borders" title="Mostrar bordes de los componentes · Ctrl+B"><i class="bi bi-bounding-box"></i></button>
       <button class="tb-btn" id="btn-preview" title="Vista previa · Ctrl+P (Esc para salir)"><i class="bi bi-eye"></i> <span class="lbl fija">Vista previa</span></button>
@@ -53,19 +62,29 @@
       <button class="tb-btn" id="btn-semantica" title="Revisión de HTML semántico"><i class="bi bi-diagram-3"></i> <span class="lbl">Semántica</span><span class="sem-badge" id="sem-count"></span></button>
       <span class="grow"></span>
       <button class="tb-btn" id="btn-help" title="Ayuda y atajos de teclado (F1)"><i class="bi bi-question-circle"></i></button>
+      <button class="tb-btn" id="btn-panel-der" title="Plegar o desplegar el panel derecho · Ctrl+]" aria-pressed="false" aria-controls="panel-der"><i class="bi bi-layout-sidebar-reverse"></i></button>
+      <button class="tb-btn" id="btn-publicar" title="Revisar el sitio y publicarlo (historial, vista previa con enlace y restauración)"><i class="bi bi-rocket-takeoff"></i> <span class="lbl fija">Revisar y publicar</span></button>
       <button class="tb-btn primary" id="btn-export" title="Exportar el sitio completo en ZIP · Ctrl+E"><i class="bi bi-download"></i> <span class="lbl fija">Exportar sitio (ZIP)</span></button>
     </header>
 
     <!-- ===== Panel izquierdo ===== -->
-    <aside class="side left">
-      <div class="tabs" data-group="left">
-        <button class="active" data-tab="blocks"><i class="bi bi-plus-square"></i> Componentes</button>
+    <aside class="side left" id="panel-izq">
+      <div class="tabs tabs-iconos" data-group="left">
+        <button class="active" data-tab="secciones"><i class="bi bi-window-stack"></i> Secciones</button>
+        <button data-tab="blocks" title="Bloques estructurales: filas, columnas, textos, botones, formularios…"><i class="bi bi-plus-square"></i> Bloques</button>
         <button data-tab="layers"><i class="bi bi-layers"></i> Capas</button>
         <button data-tab="pages"><i class="bi bi-files"></i> Páginas</button>
         <button data-tab="sitio"><i class="bi bi-palette2"></i> Sitio</button>
       </div>
-      <div class="pane active" data-group="left" data-pane="blocks">
-        <div class="search"><input id="q" type="search" placeholder="Buscar componente…"></div>
+      <!-- ===== Secciones completas (entrada principal) ===== -->
+      <div class="pane active" data-group="left" data-pane="secciones">
+        <div class="sec-destino" id="sec-destino" role="radiogroup" aria-label="Dónde insertar la sección"></div>
+        <div class="search"><input id="sec-q" type="search" placeholder="Buscar sección…" aria-label="Buscar sección"></div>
+        <div id="secciones"></div>
+        <p class="hint" style="padding:0 10px 14px">¿Necesitas filas, columnas, títulos o campos sueltos? Están en <a href="#" id="ir-bloques">Bloques</a>.</p>
+      </div>
+      <div class="pane" data-group="left" data-pane="blocks">
+        <div class="search"><input id="q" type="search" placeholder="Buscar bloque…"></div>
         <div id="blocks"></div>
       </div>
       <div class="pane" data-group="left" data-pane="layers"><div id="layers"></div></div>
@@ -76,10 +95,17 @@
           <p class="hint">La primera página se exporta como <b>index.html</b>. Para enlazar páginas, usa en el enlace el nombre del archivo, por ejemplo <b>contacto.html</b>.</p>
 
           <div class="ov" style="margin:14px -10px 0;border-bottom:0">
-            <div class="ov-title"><i class="bi bi-layout-text-window-reverse"></i> Partes comunes</div>
-            <p class="hint" style="margin:0 0 10px">Toma el menú o el pie de <b>esta</b> página y lo copia en todas las demás, reemplazando el que tengan. Las páginas nuevas los heredan solas.</p>
-            <button class="tb-btn" id="sync-nav" style="width:100%;justify-content:center;margin-bottom:6px"><i class="bi bi-menu-up"></i> Aplicar menú a todas</button>
-            <button class="tb-btn" id="sync-pie" style="width:100%;justify-content:center"><i class="bi bi-window-dock"></i> Aplicar pie a todas</button>
+            <div class="ov-title"><i class="bi bi-link-45deg"></i> Menú y pie vinculados</div>
+            <p class="hint" style="margin:0 0 10px">Vincula el menú o el pie de <b>esta</b> página con las demás: después, al editarlo aquí, cambia en todas. Cada página puede cambiar sus textos, enlaces e imágenes y volver a heredarlos.</p>
+            <div id="vinc-estado" class="vinc-estado"></div>
+            <button class="tb-btn primary" id="vinc-nav" style="width:100%;justify-content:center;margin-bottom:6px"><i class="bi bi-menu-up"></i> Vincular menú…</button>
+            <button class="tb-btn primary" id="vinc-pie" style="width:100%;justify-content:center"><i class="bi bi-window-dock"></i> Vincular pie…</button>
+            <details class="vinc-copia">
+              <summary>Copiar sin vincular</summary>
+              <p class="hint" style="margin:6px 0 8px">Copia el menú o el pie de esta página en todas las demás, una sola vez. Las copias no quedan conectadas.</p>
+              <button class="tb-btn" id="sync-nav" style="width:100%;justify-content:center;margin-bottom:6px"><i class="bi bi-menu-up"></i> Copiar menú a todas</button>
+              <button class="tb-btn" id="sync-pie" style="width:100%;justify-content:center"><i class="bi bi-window-dock"></i> Copiar pie a todas</button>
+            </details>
           </div>
         </div>
       </div>
@@ -128,6 +154,17 @@
           <p class="hint">Al soltar bloques, el menú va dentro de <b>&lt;header&gt;</b>, el contenido dentro de <b>&lt;main&gt;</b> y el pie en <b>&lt;footer&gt;</b>; los títulos no saltan niveles y cada campo queda asociado a su etiqueta. Revisa el resultado con el botón <b>Semántica</b> de arriba.</p>
         </div>
 
+        <div class="ov" id="form-destino-box">
+          <div class="ov-title"><i class="bi bi-envelope-paper"></i> Formularios</div>
+          <p class="hint" style="margin:0 0 8px">A dónde llegan los mensajes de los formularios que tienen «Recibir envíos» activado.</p>
+          <label class="t-check"><input type="radio" name="fd" value="servicio"><span>Servidor de publicación (recomendado)</span></label>
+          <label class="t-check" style="margin-top:6px"><input type="radio" name="fd" value="url"><span>Otra dirección (para sitios exportados)</span></label>
+          <input type="url" class="ov-text" id="fd-url" placeholder="https://formspree.io/f/…" spellcheck="false" style="margin:5px 0 0 22px;width:calc(100% - 22px)" aria-label="Dirección que recibe el formulario">
+          <label class="t-check" style="margin-top:6px"><input type="radio" name="fd" value="correo"><span>Correo electrónico (sin servidor)</span></label>
+          <input type="email" class="ov-text" id="fd-correo" placeholder="tu@correo.com" spellcheck="false" style="margin:5px 0 0 22px;width:calc(100% - 22px)" aria-label="Correo que recibe el formulario">
+          <p class="hint" id="fd-info"></p>
+        </div>
+
         <div class="ov">
           <div class="ov-title"><i class="bi bi-box-seam"></i> Exportación</div>
           <label class="t-check">
@@ -148,13 +185,17 @@
     <main id="gjs"></main>
 
     <!-- ===== Panel derecho ===== -->
-    <aside class="side right">
+    <aside class="side right" id="panel-der">
       <div class="tabs" data-group="right">
         <button class="active" data-tab="style"><i class="bi bi-palette"></i> Estilo</button>
         <button data-tab="traits"><i class="bi bi-gear"></i> Propiedades</button>
+        <button data-tab="interacciones" title="Cuando ocurre → sobre este elemento → ejecuta esta acción"><i class="bi bi-lightning-charge"></i> Interacciones</button>
       </div>
+      <!-- Componente vinculado: visible en todas las pestañas del panel derecho -->
+      <div class="vinc-box" id="vinc-box" hidden></div>
       <div class="pane active" data-group="right" data-pane="style">
         <div id="selectors"></div>
+        <div class="adapt" id="adapt-box" hidden></div>
         <div class="ov cls" id="clases-box" style="display:none">
           <div class="ov-title"><i class="bi bi-magic"></i> Explorador de clases</div>
           <div id="cls-aplicadas"></div>
@@ -221,6 +262,7 @@
         </div>
         <div id="traits"></div>
       </div>
+      <div class="pane" data-group="right" data-pane="interacciones"><div id="int-panel"></div></div>
     </aside>
   </div>
 
@@ -235,9 +277,19 @@
   <script src="js/bloques.js"></script>
   <script src="js/paginas.js"></script>
   <script src="js/semantica.js"></script>
+  <script src="js/vinculados.js"></script>
+  <script src="js/secciones.js"></script>
   <script src="js/clases.js"></script>
+  <script src="js/runtime.js"></script>
+  <script src="js/generador.js"></script>
   <script src="js/exportar.js"></script>
   <script src="js/codigo.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/inspector.js"></script>
+  <script src="js/revision.js"></script>
+  <script src="js/previa.js"></script>
+  <script src="js/publicar.js"></script>
+  <script src="js/interacciones.js"></script>
+  <script src="js/variantes.js"></script>
 </body>
 </html>

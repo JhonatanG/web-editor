@@ -55,19 +55,44 @@ $('#preview-exit').onclick = () => vistaPrevia(false);
 $('#btn-code').onclick = abrirCodigo;
 
 // Importar HTML
+/* El HTML pegado puede venir de cualquier sitio: antes de entrar al lienzo se
+   quitan scripts, manejadores on…, enlaces javascript:, <base>, <meta refresh>
+   y objetos incrustados. Lo quitado se informa. */
+const LIMITE_IMPORTAR = 2 * 1024 * 1024;
+function sanearHTML(html) {
+  const doc = new DOMParser().parseFromString(String(html), 'text/html');
+  const quitados = {};
+  const anota = (k) => { quitados[k] = (quitados[k] || 0) + 1; };
+  doc.querySelectorAll('script, object, embed, applet, base, meta[http-equiv], frame, frameset, portal').forEach(el => { anota('<' + el.tagName.toLowerCase() + '>'); el.remove(); });
+  doc.querySelectorAll('link').forEach(el => { if ((el.getAttribute('rel') || '').toLowerCase() !== 'stylesheet') { anota('<link>'); el.remove(); } });
+  doc.querySelectorAll('*').forEach(el => {
+    [...el.attributes].forEach(a => {
+      const n = a.name.toLowerCase(), v = a.value.replace(/[\u0000-\u0020]/g, '').toLowerCase();
+      if (n.startsWith('on')) { anota('atributos on…'); el.removeAttribute(a.name); }
+      else if (['href', 'src', 'action', 'formaction', 'xlink:href', 'srcdoc', 'data'].includes(n) && (v.startsWith('javascript:') || v.startsWith('vbscript:') || (v.startsWith('data:') && !v.startsWith('data:image/') && !v.startsWith('data:video/') && !v.startsWith('data:audio/')) || n === 'srcdoc')) {
+        anota('enlaces peligrosos'); el.removeAttribute(a.name);
+      }
+    });
+  });
+  const estilos = [...doc.head.querySelectorAll('style')].map(x => x.outerHTML).join('');
+  return { html: estilos + doc.body.innerHTML, quitados };
+}
 $('#btn-import').onclick = () => {
   const wrap = document.createElement('div');
   wrap.innerHTML = `
-    <p class="imp-hint">Pega el HTML (puede incluir <code>&lt;style&gt;</code>). Reemplaza el contenido de la página actual.</p>
+    <p class="imp-hint">Pega el HTML (puede incluir <code>&lt;style&gt;</code>). Reemplaza el contenido de la página actual. Por seguridad se quitan los scripts y los atributos <code>on…</code>.</p>
     <textarea class="imp-ta" placeholder="&lt;div class=&quot;container&quot;&gt;…&lt;/div&gt;"></textarea>
     <div style="text-align:right;margin-top:10px"><button class="tb-btn primary">Importar</button></div>`;
   wrap.querySelector('button').onclick = () => {
     const v = wrap.querySelector('textarea').value.trim();
     if (!v) return;
-    editor.setComponents(v);
+    if (v.length > LIMITE_IMPORTAR) { alert('El HTML es demasiado grande (más de 2 MB).'); return; }
+    const { html, quitados } = sanearHTML(v);
+    editor.setComponents(html);
     editor.Modal.close();
     const hechos = aplicarSemantica(editor.getWrapper());
-    toast('HTML importado' + (hechos.length ? '. Semántica: ' + hechos.join(', ') + '.' : ''), 4000);
+    const q = Object.entries(quitados).map(([k, n]) => `${n} ${k}`).join(', ');
+    toast('HTML importado' + (q ? '. Se quitó por seguridad: ' + q + '.' : '') + (hechos.length ? ' Semántica: ' + hechos.join(', ') + '.' : ''), 5000);
   };
   editor.Modal.open({ title: 'Importar HTML', content: wrap });
 };
@@ -76,8 +101,11 @@ $('#btn-import').onclick = () => {
 function guardarJSON() {
   // La identidad visual viaja dentro del .json: así el estudiante la conserva
   // al cambiar de computadora en el laboratorio.
+  if (typeof propagarPendientes === 'function') propagarPendientes();
   const proyecto = editor.getProjectData();
   proyecto.__tema = TEMA;
+  proyecto.__publicacion = { ...PUB };
+  proyecto.__formato = FORMATO_PROYECTO;
   descargar(new Blob([JSON.stringify(proyecto)], { type: 'application/json' }), 'proyecto-bootstrap.json');
   toast('Copia descargada: proyecto-bootstrap.json');
 }
@@ -87,30 +115,55 @@ const inputAbrir = document.createElement('input');
 inputAbrir.type = 'file';
 inputAbrir.accept = '.json,application/json';
 inputAbrir.style.display = 'none';
+/* Abre un proyecto (.json de esta versión o de las anteriores) después de
+   comprobar que de verdad es un proyecto del editor. */
+const LIMITE_PROYECTO = 80 * 1024 * 1024;
+function validarProyecto(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return 'no es un objeto JSON';
+  if (!Array.isArray(p.pages) || !p.pages.length) return 'no tiene páginas';
+  if (p.pages.length > 200) return 'tiene demasiadas páginas';
+  for (const pg of p.pages) {
+    if (!pg || typeof pg !== 'object') return 'una página no es válida';
+    const tieneContenido = Array.isArray(pg.frames) || pg.component !== undefined;
+    if (!tieneContenido) return 'una página no tiene contenido';
+  }
+  if (p.styles !== undefined && !Array.isArray(p.styles) && typeof p.styles !== 'string') return 'los estilos no son válidos';
+  if (p.assets !== undefined && !Array.isArray(p.assets)) return 'la lista de recursos no es válida';
+  if (p.__formato !== undefined && (typeof p.__formato !== 'number' || p.__formato > FORMATO_PROYECTO)) return 'es de una versión más nueva del editor';
+  return '';
+}
+function cargarProyecto(proyecto, aviso = 'Proyecto abierto') {
+  const error = validarProyecto(proyecto);
+  if (error) { alert('El archivo no es un proyecto válido: ' + error + '.'); return false; }
+  if (proyecto.__tema && typeof proyecto.__tema === 'object') {
+    TEMA = { ...TEMA_DEF };
+    Object.keys(TEMA_DEF).forEach(k => { if (typeof proyecto.__tema[k] === typeof TEMA_DEF[k]) TEMA[k] = proyecto.__tema[k]; });
+    try { localStorage.setItem(TEMA_CLAVE, JSON.stringify(TEMA)); } catch (err2) { /* sin almacenamiento */ }
+  }
+  leerPublicacion(proyecto);
+  const anterior = !proyecto.__formato;
+  delete proyecto.__tema; delete proyecto.__publicacion; delete proyecto.__formato;
+  editor.loadProjectData(proyecto);
+  renderPages();
+  pintarTemaUI();
+  pintarTema();
+  editor.store();
+  editor.trigger('proyecto:abierto', { anterior });
+  toast(aviso + (anterior ? ' (formato anterior: se conserva tal cual; revisa Páginas → Menú y pie vinculados)' : ''), anterior ? 5000 : 2200);
+  return true;
+}
 inputAbrir.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  inputAbrir.value = '';
+  if (file.size > LIMITE_PROYECTO) { alert('El archivo es demasiado grande para ser un proyecto (más de 80 MB).'); return; }
   const reader = new FileReader();
   reader.onload = () => {
-    try {
-      const proyecto = JSON.parse(reader.result);
-      if (proyecto && proyecto.__tema) {
-        TEMA = { ...TEMA_DEF, ...proyecto.__tema };
-        delete proyecto.__tema;
-        try { localStorage.setItem(TEMA_CLAVE, JSON.stringify(TEMA)); } catch (err2) { /* sin almacenamiento */ }
-      }
-      editor.loadProjectData(proyecto);
-      renderPages();
-      pintarTemaUI();
-      pintarTema();
-      editor.store();
-      toast('Proyecto abierto');
-    } catch (err) {
-      alert('El archivo no es un proyecto válido.');
-    }
+    let proyecto;
+    try { proyecto = JSON.parse(reader.result); } catch (err) { alert('El archivo no es un proyecto válido: no es JSON.'); return; }
+    try { cargarProyecto(proyecto); } catch (err) { console.error(err); alert('No se pudo abrir el proyecto: ' + (err.message || err)); }
   };
   reader.readAsText(file);
-  inputAbrir.value = '';
 });
 document.body.appendChild(inputAbrir);
 $('#btn-open').onclick = () => inputAbrir.click();
@@ -122,7 +175,7 @@ $('#btn-open').onclick = () => inputAbrir.click();
    el ajuste de exportación y los colores recientes del selector.
    Un reinicio de verdad tiene que vaciarlos todos.
 ===================================================================== */
-const CLAVES_AJUSTES = [TEMA_CLAVE, 'bs5-editor-bs-local', 'bs5-editor-assets-ext', 'bs5-editor-colores', SEM_CLAVE];
+const CLAVES_AJUSTES = [TEMA_CLAVE, 'bs5-editor-bs-local', 'bs5-editor-assets-ext', 'bs5-editor-colores', SEM_CLAVE, 'bs5-editor-servidor', 'bs5-editor-clave'];
 
 async function reiniciar(conAjustes) {
   reiniciando = true;              // corta el autoguardado antes de recargar
@@ -218,7 +271,11 @@ function abrirAyuda() {
   const w = document.createElement('div');
   w.innerHTML = `
     <ol class="help-steps">
-      <li>Empieza con una <b>plantilla</b> o arrastra <b>componentes</b> desde el panel izquierdo al lienzo.</li>
+      <li>Empieza con una <b>plantilla</b> o con las <b>Secciones</b> del panel izquierdo: pulsa <b>+</b> (antes o después de la sección elegida, o al final) o arrástralas al lienzo. Filas, columnas y textos sueltos están en <b>Bloques</b>.</li>
+      <li>Vincula el menú, el pie o una tarjeta para editarlos <b>una sola vez</b> en todas las páginas. En cada copia puedes cambiar textos, enlaces e imágenes y volver a heredarlos.</li>
+      <li>Para adaptar a móvil, elige el ancho (o arrastra el borde del lienzo) y usa <b>Ajustes adaptables</b> en Estilo: cada valor dice si es propio de ese tamaño o heredado.</li>
+      <li>En <b>Interacciones</b> decides qué pasa al hacer clic, al recibir el foco o al aparecer en pantalla. <b>Probar otra variante</b> propone otra versión de la sección elegida.</li>
+      <li><b>Revisar y publicar</b> busca enlaces rotos, imágenes sin texto alternativo, campos sin etiqueta y desbordes, y publica versiones que puedes restaurar.</li>
       <li><b>Doble clic</b> sobre un texto para escribir. Doble clic sobre una imagen para cambiarla.</li>
       <li>Con un elemento seleccionado, el panel derecho tiene <b>Estilo</b> (colores, tamaños, márgenes) y <b>Propiedades</b>.</li>
       <li>Para enlazar: selecciona un enlace o botón y en <b>Propiedades → Ir a</b> elige otra página o una sección. Para una web externa, escríbela en «Dirección (URL)».</li>
@@ -266,6 +323,8 @@ editor.on('canvas:frame:load', (arg) => {
 // el resto, en «Estilo». Así el panel muestra lo útil para cada cosa.
 editor.on('component:selected', (c) => {
   if (!c || !c.is) return;
+  // Quien está configurando interacciones sigue en esa pestaña al elegir otro elemento
+  if ($('.tabs[data-group=right] button.active')?.dataset.tab === 'interacciones') return;
   const props = c.is('image') || c.is('video') || c.is('video-fondo') || c.is('link') || c.is('map') || ES_ENLAZABLE(c);
   showTab('right', props ? 'traits' : 'style');
 });

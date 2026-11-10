@@ -342,13 +342,13 @@ const SITIO = (() => {
     </address>
   </div>
   <div class="col-lg-7">
-    <form class="p-4 p-md-5 bg-white rounded-4 shadow-sm" method="post" action="#">
+    <form class="p-4 p-md-5 bg-white rounded-4 shadow-sm" method="post" action="#" data-formulario="contacto">
       <div class="row g-3">
         <div class="col-md-6"><label class="form-label">Nombre</label><input type="text" class="form-control" name="nombre" required></div>
         <div class="col-md-6"><label class="form-label">Correo electrónico</label><input type="email" class="form-control" name="correo" required></div>
         <div class="col-md-6"><label class="form-label">Teléfono</label><input type="tel" class="form-control" name="telefono"></div>
         <div class="col-md-6"><label class="form-label">Asunto</label><input type="text" class="form-control" name="asunto"></div>
-        <div class="col-12"><label class="form-label">Mensaje</label><textarea class="form-control" name="mensaje" rows="5"></textarea></div>
+        <div class="col-12"><label class="form-label">Mensaje</label><textarea class="form-control" name="mensaje" rows="5" required minlength="10"></textarea></div>
         <div class="col-12"><button type="submit" class="btn-sitio">Enviar mensaje</button></div>
       </div>
     </form>
@@ -365,7 +365,7 @@ const SITIO = (() => {
   <div class="container text-center" style="max-width:720px">
 <h2 class="font-titulo display-6" data-reveal="fade-up">Recibe nuestras novedades</h2>
 <p class="mb-4 opacity-75">Noticias y novedades directo a tu correo.</p>
-<form class="row g-2 justify-content-center" method="post" action="#">
+<form class="row g-2 justify-content-center" method="post" action="#" data-formulario="suscripcion">
   <div class="col-sm-8"><input type="email" class="form-control" name="correo" placeholder="Tu correo electrónico" aria-label="Tu correo electrónico" required></div>
   <div class="col-sm-4 d-grid"><button type="submit" class="btn-sitio-claro">Suscribirme</button></div>
 </form>
@@ -545,10 +545,10 @@ add('nav', 'dropdown', 'Menú desplegable', 'menu-down',
 
 /* ---------- Formularios ---------- */
 add('frm', 'form-contact', 'Formulario contacto', 'envelope', `
-  <form class="p-3" method="post" action="#">
+  <form class="p-3" method="post" action="#" data-formulario="contacto">
     <div class="mb-3"><label class="form-label">Nombre</label><input type="text" class="form-control" name="nombre" placeholder="Tu nombre" required></div>
     <div class="mb-3"><label class="form-label">Correo electrónico</label><input type="email" class="form-control" name="correo" placeholder="nombre@ejemplo.com" required></div>
-    <div class="mb-3"><label class="form-label">Mensaje</label><textarea class="form-control" name="mensaje" rows="4" placeholder="Escribe tu mensaje"></textarea></div>
+    <div class="mb-3"><label class="form-label">Mensaje</label><textarea class="form-control" name="mensaje" rows="4" placeholder="Escribe tu mensaje" required></textarea></div>
     <button type="submit" class="btn btn-primary">Enviar mensaje</button>
   </form>`);
 add('frm', 'form-login', 'Formulario acceso', 'box-arrow-in-right', `
@@ -733,7 +733,7 @@ add('sec', 'contact', 'Contacto', 'envelope-paper', `
   <section class="py-5"><div class="container"><div class="row g-5">
     <div class="col-md-5"><h2 class="fw-bold">Contáctanos</h2><p class="text-body-secondary">Escríbenos y te responderemos lo antes posible.</p>
       <p><i class="bi bi-geo-alt me-2"></i>Dirección, Ciudad</p><p><i class="bi bi-envelope me-2"></i>correo@ejemplo.com</p><p><i class="bi bi-telephone me-2"></i>+593 000 000 000</p></div>
-    <div class="col-md-7"><form method="post" action="#">
+    <div class="col-md-7"><form method="post" action="#" data-formulario="contacto">
       <div class="row g-3"><div class="col-md-6"><input type="text" class="form-control" name="nombre" placeholder="Nombre"></div><div class="col-md-6"><input type="email" class="form-control" name="correo" placeholder="Correo"></div></div>
       <textarea class="form-control mt-3" name="mensaje" rows="5" placeholder="Mensaje"></textarea>
       <button type="submit" class="btn btn-primary mt-3">Enviar</button>
@@ -878,7 +878,7 @@ function abrirPlantillas(bienvenida = false) {
     <p class="imp-hint">Todo se puede editar después: textos, imágenes, colores, fuentes y secciones.</p>
     <div class="plantilla" data-modo="completo"><i class="bi bi-collection"></i><div><b>Sitio web completo (4 páginas)</b><span>Inicio, Servicios, Galería y Contacto, ya enlazadas entre sí, con menú, pie de página y botón de WhatsApp. Reemplaza el contenido de la página de inicio.</span></div></div>
     <div class="plantilla" data-modo="inicio"><i class="bi bi-house-door"></i><div><b>Solo una página de inicio</b><span>Menú, hero con video, destacados, servicios, testimonios y pie. Reemplaza el contenido de la página actual.</span></div></div>
-    <div class="plantilla" data-modo="blanco"><i class="bi bi-file-earmark"></i><div><b>Página en blanco</b><span>Empieza desde cero arrastrando componentes del panel izquierdo (pestaña «Componentes»).</span></div></div>
+    <div class="plantilla" data-modo="blanco"><i class="bi bi-file-earmark"></i><div><b>Página en blanco</b><span>Empieza desde cero con las secciones del panel izquierdo (pestaña «Secciones»).</span></div></div>
     ${bienvenida ? '<p class="hint">Puedes volver a abrir esta ventana con el botón «Plantillas» y ver la ayuda con <b>F1</b>.</p>' : ''}`;
   w.querySelectorAll('.plantilla').forEach(el => el.addEventListener('click', () => {
     const modo = el.dataset.modo;
@@ -886,8 +886,8 @@ function abrirPlantillas(bienvenida = false) {
       if (!paginaVacia() && !confirm('¿Vaciar el contenido de la página actual?')) return;
       editor.setComponents('');
       editor.Modal.close();
-      showTab('left', 'blocks');
-      toast('Arrastra un componente del panel izquierdo al lienzo', 3500);
+      showTab('left', 'secciones');
+      toast('Elige una sección del panel izquierdo: pulsa + o arrástrala al lienzo', 3500);
       return;
     }
     if (!paginaVacia() && !confirm('Esto reemplaza el contenido de la página actual. ¿Continuar?')) return;

@@ -349,7 +349,8 @@ with sync_playwright() as p:
     escribir(btn, 'Ver galería')
     sel(btn); trait('Ir a', 'galeria.html')
     check('botón del hero lleva a la galería', E(f"(({comp(btn)}).getAttributes().href || ({comp(btn)}).getAttributes()['data-ir-a'])") == 'galeria.html')
-    pg.click('[data-tab=pages]'); pg.click('#sync-nav'); pg.wait_for_timeout(600)
+    # «Aplicar a todas» ahora está en el desplegable «Copiar sin vincular» (lo recomendado es vincular)
+    pg.click('[data-tab=pages]'); pg.click('.vinc-copia summary'); pg.click('#sync-nav'); pg.wait_for_timeout(600)
     pg.click('#sync-pie'); pg.wait_for_timeout(600)
     activos = []
     for i in range(3):

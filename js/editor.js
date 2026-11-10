@@ -125,7 +125,9 @@ const editor = grapesjs.init({
     type: 'idb',
     autosave: true,
     autoload: true,
-    stepsBeforeSave: 1     // guarda tras cada cambio: cerrar la pestaña no pierde nada
+    stepsBeforeSave: 1,    // guarda tras cada cambio: cerrar la pestaña no pierde nada
+    onStore: (d) => alGuardarProyecto(d),
+    onLoad: (d) => alCargarProyecto(d)
   },
 
   plugins: [almacenIDB, 'grapesjs-plugin-forms', 'grapesjs-custom-code', 'grapesjs-parser-postcss', tiposPropios],
@@ -368,15 +370,19 @@ function ampliarFoto(doc, img) {
   doc.body.appendChild(lb);
 }
 /* En un botón la barra espaciadora «pulsa» el botón (abre o cierra un acordeón)
-   en vez de escribir un espacio. Mientras se edita su texto, se escribe el espacio. */
+   en vez de escribir un espacio. Y con el lienzo a escala (pantallas de menos de
+   ~1900 px) GrapesJS usa la barra espaciadora para arrastrar el lienzo y el
+   espacio no llegaba al texto: «Estudio Norte» quedaba «EstudioNorte».
+   Mientras se edita un texto, la barra espaciadora siempre escribe un espacio. */
 function espaciosEnBotones(doc) {
   if (!doc || doc.__espacios) return;
   doc.__espacios = true;
   doc.addEventListener('keydown', (ev) => {
     if (ev.key !== ' ' || ev.ctrlKey || ev.metaKey || ev.altKey) return;
     const t = ev.target;
-    if (!t || !t.isContentEditable || !t.closest || !t.closest('button, summary')) return;
+    if (!t || !t.isContentEditable) return;
     ev.preventDefault();
+    ev.stopImmediatePropagation();
     doc.execCommand('insertText', false, ' ');
   }, true);
 }
@@ -519,15 +525,21 @@ function cerrarAbiertos(doc) {
    1280 px de verdad y se muestra a escala para que quepa. */
 const ANCHO_ESCRITORIO = 1280;
 let escala = 1;
+// Ancho real que debe tener la página en el lienzo: el del dispositivo elegido
+// (o el ancho personalizado del inspector); en «Escritorio», 1280 px.
+function anchoDelDispositivo() {
+  const d = editor.Devices.getSelected();
+  return parseInt(d && d.get('width'), 10) || ANCHO_ESCRITORIO;
+}
 function ajustarEscala() {
   const gjs = $('#gjs');
   if (!gjs) return;
   const disponible = gjs.clientWidth - 24;
-  const esEscritorio = (editor.getDevice() || 'desktop') === 'desktop';
-  escala = esEscritorio && disponible > 0 && disponible < ANCHO_ESCRITORIO
-    ? Math.max(0.35, disponible / ANCHO_ESCRITORIO) : 1;
+  const ancho = anchoDelDispositivo();
+  escala = disponible > 0 && disponible < ancho ? Math.max(0.2, disponible / ancho) : 1;
   gjs.classList.toggle('escalado', escala < 1);
   gjs.style.setProperty('--z', escala);
+  gjs.style.setProperty('--ancho', ancho + 'px');
   try { editor.Canvas.setZoom(escala * 100); } catch (e) { /* versión sin zoom */ }
   // El marco cambia de ancho con una animación: se mide al terminar
   setTimeout(actualizarAncho, 60);
