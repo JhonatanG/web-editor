@@ -465,6 +465,17 @@ add('btn', 'btn-block',       'Botón ancho total','arrows-expand-vertical','<di
 add('btn', 'btn-group',       'Grupo de botones', 'toggles2',
   '<div class="btn-group" role="group"><a href="#" class="btn btn-primary" role="button">Izquierda</a><a href="#" class="btn btn-primary" role="button">Centro</a><a href="#" class="btn btn-primary" role="button">Derecha</a></div>');
 
+/* ---------- Fondo animado de partículas (tipo «fondo-particulas», tsParticles) ---------- */
+add('adv', 'fondo-particulas', 'Fondo de partículas', 'stars', `
+<section class="seccion-particulas">
+  <div class="fondo-particulas" data-gjs-type="fondo-particulas"></div>
+  <div class="container">
+    <h2 class="display-5 fw-bold mb-3">Un fondo que se mueve</h2>
+    <p class="lead mb-4">Selecciona el fondo (en Capas: «Fondo de partículas») para cambiar color, cantidad, velocidad y forma en Propiedades.</p>
+    <a href="#" class="btn btn-light btn-lg" role="button">Empezar</a>
+  </div>
+</section>`);
+
 /* ---------- Navegación ---------- */
 const navbar = (dark) => `
   <nav class="navbar navbar-expand-md" style="background-color:${dark ? '#212529' : '#f8f9fa'}" ${dark ? 'data-bs-theme="dark"' : ''}>

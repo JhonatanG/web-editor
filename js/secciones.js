@@ -14,6 +14,34 @@ const SEC_EXTRA = (() => {
   const IMG = (w, h, col, txt) => svgEjemplo(w, h, col, txt);
   const C = ['3b5bdb', '4c6ef5', '5c7cfa', '364fc7', '4263eb', '1b2559'];
   const S = {};
+  // Estilo «Prisma»: menú en pestaña que cuelga del borde superior…
+  S.menuPestana = () => `
+<nav class="nav-pestana" aria-label="Menú principal">
+  <ul class="nav-pestana-lista">
+<li><a class="nav-link active" aria-current="page" href="index.html">Inicio</a></li>
+<li><a class="nav-link" href="#historia">Historia</a></li>
+<li><a class="nav-link" href="servicios.html">Servicios</a></li>
+<li><a class="nav-link" href="galeria.html">Proyectos</a></li>
+<li><a class="nav-link" href="contacto.html">Contacto</a></li>
+  </ul>
+</nav>`;
+  // …y hero enmarcado: foto o video de fondo, nombre gigante abajo a la izquierda
+  S.heroMarco = () => `
+<section class="hero-marco" id="inicio">
+  <div class="hero-marco-lienzo">
+<video class="hero-video" data-gjs-type="video-fondo" autoplay muted loop playsinline></video>
+<div class="hero-marco-degradado"></div>
+<div class="hero-marco-contenido">
+  <div class="row align-items-end g-4">
+    <div class="col-lg-8"><h1 class="hero-marca">Estudio<span class="hero-marca-ast" aria-hidden="true">*</span></h1></div>
+    <div class="col-lg-4">
+      <p class="hero-marco-texto">Una frase que diga quiénes son, qué crean y para quién. Cambia la foto de fondo en Estilo o pon un video con «Video de fondo».</p>
+      <a href="contacto.html" class="btn-pildora">Únete al equipo <span class="btn-pildora-icono" aria-hidden="true"><i class="bi bi-arrow-right"></i></span></a>
+    </div>
+  </div>
+</div>
+  </div>
+</section>`;
   S.heroDividido = () => `
 <section class="seccion hero-dividido fondo-claro" id="inicio">
   <div class="container">
@@ -90,6 +118,8 @@ const CATS_SEC = [
 const SECCIONES = [
   { id: 's-hero-video', cat: 'hero', nombre: 'Hero con video de fondo', bloque: 's-hero-video' },
   { id: 's-hero-img', cat: 'hero', nombre: 'Hero con imagen de fondo', bloque: 's-hero-img' },
+  { id: 'sec-hero-marco', cat: 'hero', nombre: 'Hero enmarcado con nombre gigante (estilo Prisma)', html: SEC_EXTRA.heroMarco },
+  { id: 'sec-hero-prisma', cat: 'hero', nombre: 'Menú en pestaña + hero enmarcado (estilo Prisma)', html: () => SEC_EXTRA.menuPestana() + SEC_EXTRA.heroMarco() },
   { id: 'sec-hero-dividido', cat: 'hero', nombre: 'Hero dividido: texto e imagen', html: SEC_EXTRA.heroDividido },
   { id: 's-banner', cat: 'hero', nombre: 'Cabecera de página interior', bloque: 's-banner' },
   { id: 'hero', cat: 'hero', nombre: 'Hero centrado (Bootstrap)', bloque: 'hero' },
@@ -115,6 +145,7 @@ const SECCIONES = [
   { id: 's-parallax', cat: 'cta', nombre: 'Cifras sobre fondo fijo', bloque: 's-parallax' },
   { id: 'team', cat: 'cta', nombre: 'Equipo', bloque: 'team' },
   { id: 's-nav', cat: 'estructura', nombre: 'Menú transparente', bloque: 's-nav' },
+  { id: 'sec-menu-pestana', cat: 'estructura', nombre: 'Menú en pestaña (estilo Prisma)', html: SEC_EXTRA.menuPestana },
   { id: 'navbar-light', cat: 'estructura', nombre: 'Menú claro', bloque: 'navbar-light' },
   { id: 's-pie', cat: 'estructura', nombre: 'Pie con foto y redes', bloque: 's-pie' },
   { id: 'footer', cat: 'estructura', nombre: 'Pie sencillo', bloque: 'footer' }

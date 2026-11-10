@@ -151,7 +151,7 @@ function renderPages() {
    así que lo dejaba y añadía otro encima (menús duplicados).
 ===================================================================== */
 const ES_NAV = (c) => tagDe(c) === 'nav' &&
-  (tieneClase(c, 'nav-transparente') || tieneClase(c, 'navbar') || tagDe(c.parent()) === 'header');
+  (tieneClase(c, 'nav-transparente') || tieneClase(c, 'navbar') || tieneClase(c, 'nav-pestana') || tagDe(c.parent()) === 'header');
 const ES_PIE = (c) => tagDe(c) === 'footer';
 
 // Marca como activo el enlace del menú que apunta al archivo de esa página
@@ -159,7 +159,8 @@ function marcarActivo(raiz, archivo) {
   buscarComp(raiz, c => tieneClase(c, 'nav-link')).forEach(l => {
     const href = ((l.get('attributes') || {}).href || '').split('#')[0];
     l.removeClass('active');
-    if (href === archivo) l.addClass('active');
+    l.removeAttributes('aria-current');
+    if (href === archivo) { l.addClass('active'); l.addAttributes({ 'aria-current': 'page' }); }
   });
 }
 

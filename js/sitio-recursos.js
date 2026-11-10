@@ -19,6 +19,10 @@ const FUENTES = [
 ];
 const gfUrl = (lista) => 'https://fonts.googleapis.com/css2?' + lista.map(f => 'family=' + f.gf).join('&') + '&display=swap';
 
+// Biblioteca del fondo de partículas (versión fija). La usan el lienzo
+// (canvas.scripts) y el sitio exportado, que la carga solo si hay partículas.
+const TSPARTICLES_CDN = 'https://cdn.jsdelivr.net/npm/@tsparticles/slim@3.9.1/tsparticles.slim.bundle.min.js';
+
 const SITE_CSS = `
 :root{
   --sitio-primario:#3b5bdb;
@@ -78,6 +82,37 @@ body>footer{margin-top:auto}
 iframe.hero-video{top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100%;transform:translate(-50%,-50%) scale(1.2);border:0;pointer-events:none}
 iframe.hero-video[src*="youtube"]{opacity:0;transition:opacity .8s ease}
 iframe.hero-video[src*="youtube"].yt-ve{opacity:1}
+/* Estilo «Prisma»: menú en pestaña colgante y hero enmarcado con marca gigante */
+.nav-pestana{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:1030;max-width:calc(100% - 2rem);background:#000;border-radius:0 0 1.5rem 1.5rem;padding:.55rem 2rem}
+.nav-pestana-lista{display:flex;align-items:center;gap:clamp(.9rem,3.5vw,3.25rem);list-style:none;margin:0;padding:0;white-space:nowrap;overflow-x:auto;scrollbar-width:none}
+.nav-pestana-lista::-webkit-scrollbar{display:none}
+.nav-pestana .nav-link{padding:0;font-size:.875rem;font-weight:400;color:rgba(225,224,204,.8);transition:color .25s ease}
+.nav-pestana .nav-link:hover,.nav-pestana .nav-link:focus-visible,.nav-pestana .nav-link.active{color:#e1e0cc}
+.hero-marco{position:relative;min-height:100vh;padding:1.5rem;background:#000;display:flex}
+.hero-marco-lienzo{position:relative;flex:1;min-height:calc(100vh - 3rem);border-radius:2rem;overflow:hidden;display:flex;align-items:flex-end;background-color:#0d0d0f;background-image:radial-gradient(ellipse at 72% 30%,rgba(214,140,69,.55),transparent 55%),radial-gradient(ellipse at 20% 85%,rgba(52,64,120,.6),transparent 60%),linear-gradient(160deg,#141826 0%,#07080c 100%);background-size:cover;background-position:center}
+.hero-marco-lienzo>.hero-video{z-index:0}
+.hero-marco-degradado{position:absolute;top:0;right:0;bottom:0;left:0;z-index:1;pointer-events:none;background:linear-gradient(to bottom,rgba(0,0,0,.3) 0%,transparent 35%,transparent 65%,rgba(0,0,0,.6) 100%)}
+.hero-marco-contenido{position:relative;z-index:2;width:100%;padding:0 3rem 4rem;color:#e1e0cc}
+.hero-marca{font-family:var(--fuente-texto);font-weight:500;font-size:clamp(3.5rem,13.5vw,15rem);line-height:.85;letter-spacing:-.07em;color:#e1e0cc;margin:0;overflow-wrap:break-word}
+.hero-marca-ast{display:inline-block;font-size:.31em;font-weight:400;vertical-align:top;margin-left:.08em;letter-spacing:0}
+.hero-marco-texto{font-size:clamp(.875rem,1.1vw,1rem);line-height:1.55;color:rgba(225,224,204,.8);margin-bottom:1.25rem}
+.btn-pildora{display:inline-flex;align-items:center;gap:1rem;padding:.3rem .3rem .3rem 1.5rem;border-radius:50rem;background:#e1e0cc;color:#000;font-size:.875rem;font-weight:500;text-decoration:none;transition:background-color .25s ease}
+.btn-pildora:hover{background:#fff;color:#000}
+.btn-pildora-icono{display:inline-flex;align-items:center;justify-content:center;width:2.6rem;height:2.6rem;border-radius:50%;background:#000;color:#e1e0cc;transition:transform .25s ease}
+.btn-pildora:hover .btn-pildora-icono{transform:translateX(3px)}
+@media (max-width:767.98px){
+  .nav-pestana{padding:.5rem 1.1rem;border-radius:0 0 1rem 1rem}
+  .nav-pestana .nav-link{font-size:.75rem}
+  .hero-marco{padding:1rem}
+  .hero-marco-lienzo{min-height:calc(100vh - 2rem);border-radius:1rem}
+  .hero-marco-contenido{padding:0 1.5rem 2rem}
+  .hero-marca{font-size:20vw}
+}
+/* Fondo de partículas: el lienzo de tsParticles queda detrás del contenido */
+.seccion-particulas{position:relative;overflow:hidden;min-height:70vh;display:flex;align-items:center;text-align:center;color:#fff;background-color:var(--sitio-osc)}
+.fondo-particulas{position:absolute;top:0;right:0;bottom:0;left:0;z-index:0}
+.fondo-particulas canvas{display:block}
+.seccion-particulas>.container{position:relative;z-index:1;padding-top:5rem;padding-bottom:5rem}
 .overlay{position:absolute;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.45);z-index:1}
 .hero-contenido{position:relative;z-index:2;max-width:880px;padding:7rem 1.5rem 5rem}
 .hero h1{font-family:var(--fuente-titulos);font-weight:600;font-size:clamp(2.4rem,5.5vw,4.6rem);line-height:1.1;text-shadow:0 2px 24px rgba(0,0,0,.35)}

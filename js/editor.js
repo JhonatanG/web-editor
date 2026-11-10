@@ -76,6 +76,189 @@ function tiposPropios(ed) {
       }
     }
   });
+
+  /* ---------- Fondo de partículas (tsParticles) ----------
+     Componente con «script»: GrapesJS lo ejecuta en el lienzo (la biblioteca
+     ya está en canvas.scripts) y al exportar lo pone en js/<página>.js. Los
+     ajustes van en atributos data-* para que sobrevivan a copiar/pegar y a
+     los componentes vinculados; si cambian, el script vuelve a correr. */
+  dc.addType('fondo-particulas', {
+    isComponent: el => el.classList && el.classList.contains('fondo-particulas') && { type: 'fondo-particulas' },
+    model: {
+      defaults: {
+        name: 'Fondo de partículas',
+        tagName: 'div',
+        droppable: false,
+        attributes: { class: 'fondo-particulas', 'aria-hidden': 'true', 'data-color': '#ffffff', 'data-cantidad': '70', 'data-velocidad': '1.2', 'data-enlaces': 'si', 'data-forma': 'circle' },
+        'tsp-cdn': TSPARTICLES_CDN,
+        'script-props': ['tsp-cdn'],
+        traits: [
+          { type: 'color',  name: 'data-color',     label: 'Color de las partículas' },
+          { type: 'number', name: 'data-cantidad',  label: 'Cantidad', min: 5, max: 300, step: 5 },
+          { type: 'number', name: 'data-velocidad', label: 'Velocidad (0 = quietas)', min: 0, max: 10, step: 0.1 },
+          { type: 'checkbox', name: 'data-enlaces', label: 'Unir con líneas', valueTrue: 'si', valueFalse: 'no' },
+          { type: 'select', name: 'data-forma', label: 'Forma', options: [
+            { id: 'circle', name: 'Círculos' }, { id: 'square', name: 'Cuadrados' },
+            { id: 'triangle', name: 'Triángulos' }, { id: 'star', name: 'Estrellas' }] }
+        ],
+        // Se ejecuta en el lienzo y en el sitio exportado (this = el <div>).
+        // Debe bastarse a sí misma: GrapesJS la exporta como texto.
+        script: function (props) {
+          var el = this, w = window, d = el.dataset;
+          var num = function (v, def) { v = parseFloat(v); return isNaN(v) ? def : v; };
+          var color = d.color || '#ffffff';
+          var vel = num(d.velocidad, 1.2);
+          var enlaces = d.enlaces !== 'no';
+          var forma = d.forma || 'circle';
+          if (w.matchMedia && w.matchMedia('(prefers-reduced-motion: reduce)').matches) vel = 0;
+          var opciones = {
+            fullScreen: { enable: false },
+            background: { color: { value: 'transparent' } },
+            detectRetina: true,
+            fpsLimit: 60,
+            particles: {
+              number: { value: num(d.cantidad, 70), density: { enable: true } },
+              color: { value: color },
+              shape: forma === 'triangle' ? { type: 'polygon', options: { polygon: { sides: 3 } } } : { type: forma },
+              opacity: { value: { min: 0.3, max: 0.8 } },
+              size: { value: { min: 1, max: forma === 'circle' ? 3.5 : 5 } },
+              links: { enable: enlaces, color: color, distance: 140, opacity: 0.35, width: 1 },
+              move: { enable: vel > 0, speed: vel, outModes: { default: 'out' } }
+            },
+            interactivity: {
+              detectsOn: 'window',
+              events: { onHover: { enable: vel > 0, mode: enlaces ? 'grab' : 'repulse' }, resize: { enable: true } },
+              modes: { grab: { distance: 170, links: { opacity: 0.7 } }, repulse: { distance: 90 } }
+            }
+          };
+          var arrancar = function () {
+            // Quita la animación anterior de este fondo y las que quedaron sin elemento
+            w.tsParticles.dom().slice().forEach(function (c) {
+              try { var cv = c.canvas && c.canvas.element; if (c === el.__tsp || (cv && !cv.isConnected)) c.destroy(); } catch (e) {}
+            });
+            if (!w.__tspSlim) w.__tspSlim = w.loadSlim(w.tsParticles);
+            w.__tspSlim.then(function () {
+              return w.tsParticles.load({ id: el.id || undefined, element: el, options: opciones });
+            }).then(function (c) { el.__tsp = c; })['catch'](function (e) { if (w.console) console.warn('Fondo de partículas:', e); });
+          };
+          if (w.tsParticles && w.loadSlim) return arrancar();
+          if (!w.__tspCarga) {
+            w.__tspCarga = new Promise(function (ok, mal) {
+              var s = document.createElement('script');
+              s.src = props['tsp-cdn']; s.onload = ok; s.onerror = mal;
+              document.head.appendChild(s);
+            });
+          }
+          w.__tspCarga.then(arrancar, function () { if (w.console) console.warn('No se pudo cargar tsParticles'); });
+        }
+      },
+      init() {
+        // Cambiar color, cantidad… en Propiedades vuelve a dibujar el fondo
+        this.on('change:attributes', () => this.trigger('rerender'));
+      }
+    }
+  });
+
+  /* ---------- Bloque «Código HTML/JS» ----------
+     El plugin no ejecuta los <script> en el lienzo y muestra «Custom code
+     with <script> can't be rendered on the canvas». Aquí se dibuja el HTML y
+     se ejecutan sus scripts dentro del lienzo, en orden (los src primero se
+     descargan). Por seguridad solo se ejecuta el código escrito en este
+     navegador: el de un proyecto abierto desde un archivo espera a que lo
+     revises (doble clic → Guardar). En el ZIP se exporta igual siempre. */
+  const ccBase = dc.getType('custom-code');
+  if (ccBase) {
+    const CLAVE_CC = 'custom-code-plugin__code';
+    const ccInitBase = ccBase.view.prototype.init;
+    const ccToHTML = ccBase.model.prototype.toHTML;
+    dc.addType('custom-code', {
+      model: {
+        // El analizador de GrapesJS quita los <script> al convertir el código
+        // en componentes; al exportar se usa el código tal cual se escribió.
+        toHTML() {
+          const html = ccToHTML.apply(this, arguments);
+          const codigo = this.get(CLAVE_CC) || '';
+          if (!/<script/i.test(codigo)) return html;
+          const fin = html.indexOf('>');
+          return html.slice(0, fin + 1) + codigo + `</${this.get('tagName') || 'div'}>`;
+        }
+      },
+      view: {
+        init() {
+          ccInitBase.apply(this, arguments);
+          this.listenTo(this.model, 'change:' + CLAVE_CC, this.ejecutarScripts);
+        },
+        onRender() { this.ejecutarScripts(); },
+        ejecutarScripts() {
+          clearTimeout(this._tScripts);
+          this._tScripts = setTimeout(() => {
+            const el = this.el, doc = el && el.ownerDocument;
+            if (!doc || !doc.defaultView || !el.isConnected) return;
+            const cid = this.model.cid;
+            doc.querySelectorAll(`script[data-cc-ejecutado="${cid}"]`).forEach(s => s.remove());
+            const codigo = this.model.get(CLAVE_CC) || '';
+            if (!/<script/i.test(codigo)) return;
+            if (!codigoConfiable(codigo)) {
+              el.innerHTML = '<div style="pointer-events:none;padding:12px;font:13px system-ui,sans-serif;color:#6c757d;border:1px dashed #adb5bd;border-radius:6px">' +
+                '<b>Código con JavaScript de un archivo abierto.</b> Para ejecutarlo en el lienzo, haz doble clic, revísalo y pulsa «Guardar». Se exporta igual.</div>';
+              return;
+            }
+            const scripts = [...new DOMParser().parseFromString(codigo, 'text/html').querySelectorAll('script')];
+            const siguiente = (i) => {
+              if (i >= scripts.length || !el.isConnected) return;
+              const o = scripts[i], s = doc.createElement('script');
+              [...o.attributes].forEach(a => s.setAttribute(a.name, a.value));
+              s.setAttribute('data-cc-ejecutado', cid);
+              if (o.src) {
+                s.onload = s.onerror = () => siguiente(i + 1);
+                doc.head.appendChild(s);
+              } else {
+                // Entre llaves: volver a ejecutarlo no choca con sus let/const
+                s.textContent = o.type === 'module' ? o.textContent : '{\n' + o.textContent + '\n}';
+                doc.head.appendChild(s);
+                siguiente(i + 1);
+              }
+            };
+            siguiente(0);
+          }, 60);
+        }
+      }
+    });
+    // Guardar desde la ventana de código marca ese código como revisado
+    const cmdCC = editor => editor.Commands.get('custom-code:open-modal');
+    ed.onReady(() => {
+      const cmd = cmdCC(ed);
+      if (!cmd || cmd.__confiable) return;
+      const guardar = cmd.handleSave;
+      cmd.handleSave = function () {
+        const destino = this.target;
+        confiarCodigo(this.getCodeViewer().getContent());
+        const r = guardar.apply(this, arguments);
+        // Si el código no cambió, no hay evento: se vuelve a dibujar igual
+        if (destino) destino.trigger('rerender');
+        return r;
+      };
+      cmd.__confiable = true;
+    });
+  }
+}
+
+/* Código personal revisado en este navegador (huellas, no el código) */
+const CLAVE_CONFIABLES = 'bs5-codigo-confiable';
+const huellaCodigo = (t) => {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < t.length; i++) { const c = t.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
+};
+const leerConfiables = () => { try { return JSON.parse(localStorage.getItem(CLAVE_CONFIABLES)) || []; } catch (e) { return []; } };
+function codigoConfiable(codigo) { return leerConfiables().includes(huellaCodigo(String(codigo).trim())); }
+function confiarCodigo(codigo) {
+  const h = huellaCodigo(String(codigo).trim());
+  const lista = leerConfiables().filter(x => x !== h);
+  lista.push(h);
+  try { localStorage.setItem(CLAVE_CONFIABLES, JSON.stringify(lista.slice(-300))); } catch (e) {}
 }
 
 /* =====================================================================
@@ -88,6 +271,9 @@ const editor = grapesjs.init({
   fromElement: false,
   telemetry: false,
   panels: { defaults: [] },
+  // El JS de los componentes (p. ej. el fondo de partículas) va en
+  // js/<página>.js al exportar; no se repite dentro del HTML
+  jsInHtml: false,
 
   // Interfaz de GrapesJS en español (lo que no esté aquí queda en inglés)
   i18n: {
@@ -135,7 +321,8 @@ const editor = grapesjs.init({
     // Los bloques de formulario los definimos nosotros con clases de Bootstrap 5.
     // El plugin solo aporta los tipos de componente y sus propiedades (name, placeholder, required…).
     'grapesjs-plugin-forms': { blocks: [] },
-    'grapesjs-custom-code': { blockCustomCode: { label: 'Código HTML/JS', category: CAT.adv } }
+    // Sin aviso de «can't be rendered»: los scripts se ejecutan en el lienzo (ver tiposPropios)
+    'grapesjs-custom-code': { blockCustomCode: { label: 'Código HTML/JS', category: CAT.adv }, placeholderScript: '', modalTitle: 'Código HTML/JS', buttonLabel: 'Guardar' }
   },
 
   // Las imágenes subidas se guardan dentro del proyecto (base64) y al
@@ -189,7 +376,8 @@ const editor = grapesjs.init({
       gfUrl(FUENTES)
     ],
     scripts: [
-      'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
+      'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
+      TSPARTICLES_CDN   // fondo de partículas (componente «fondo-particulas»)
     ]
   }
 });
@@ -938,8 +1126,14 @@ function ponerVideo(c, src, nombre) {
     if (dentro) return dentro;
     // Al hacer clic en el hero se selecciona la capa oscura (.overlay) o el
     // contenido, que están AL LADO del video, no lo contienen: se busca en los hermanos.
-    const padre = c.parent();
-    return (padre && padre !== editor.getWrapper() && padre.components().find(esFondo)) || null;
+    // Se sube por los padres (el texto puede estar varias capas más adentro,
+    // como en el hero enmarcado) hasta la sección que lo contiene.
+    for (let a = c.parent(); a && a !== editor.getWrapper(); a = a.parent()) {
+      const v = a.components().find(esFondo);
+      if (v) return v;
+      if (tagDe(a) === 'section' || tagDe(a) === 'header') break;
+    }
+    return null;
   };
   const srcDe = c => c.is('video-fondo') ? (c.getAttributes().src || '') : (c.get('src') || '');
   const mostrar = () => {

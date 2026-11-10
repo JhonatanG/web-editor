@@ -131,6 +131,7 @@ function dependenciasExternas(paginas, o) {
     dep.push({ que: 'Formulario de contacto', donde: ep ? ep.replace(/^mailto:/, 'correo: ') : 'sin destino configurado',
       nota: o.modo === 'publicar' ? 'Lo recibe el servidor de publicación.' : PUB.formDestino === 'servicio' ? 'Necesita el servidor de publicación en línea para recibir los mensajes.' : 'Usa el destino elegido en Sitio → Formularios.' });
   }
+  if (/class="[^"]*\bfondo-particulas\b/i.test(todo)) dep.push({ que: 'Fondo de partículas', donde: 'cdn.jsdelivr.net (tsParticles)', nota: 'Sin conexión el fondo queda liso; el contenido se ve igual.' });
   if (/youtube(-nocookie)?\.com|player\.vimeo\.com/i.test(todo)) dep.push({ que: 'Videos', donde: 'YouTube / Vimeo', nota: 'Se reproducen desde esos servicios.' });
   if (/maps\.google|google\.com\/maps/i.test(todo)) dep.push({ que: 'Mapa', donde: 'Google Maps', nota: 'Se carga desde Google.' });
   if (/wa\.me\//i.test(todo)) dep.push({ que: 'Botón de WhatsApp', donde: 'wa.me', nota: 'Abre WhatsApp.' });
