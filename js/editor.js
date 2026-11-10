@@ -300,6 +300,14 @@ function inyectarEstiloCanvas(doc) {
   }
   doc.head.appendChild(tv);
   tv.textContent = temaCss();
+  // En el lienzo la página va dentro de un <div> de GrapesJS (no directamente en
+  // <body>): se le da el mismo «pie siempre abajo» que tiene el sitio exportado.
+  if (!doc.getElementById('ed-pie')) {
+    const pie = doc.createElement('style');
+    pie.id = 'ed-pie';
+    pie.textContent = 'body>div:first-of-type{min-height:100vh;display:flex;flex-direction:column}body>div:first-of-type>footer{margin-top:auto}';
+    doc.head.appendChild(pie);
+  }
   // GrapesJS bloquea los clics en videos e iframes (gjs-no-pointer) para poder
   // seleccionarlos; en la vista previa se reactivan para poder reproducirlos.
   let pv = doc.getElementById('ed-previa');

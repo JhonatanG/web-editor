@@ -35,6 +35,10 @@ html{scroll-behavior:smooth}
 [id]{scroll-margin-top:92px}
 @media (max-width:991.98px){[id]{scroll-margin-top:76px}}
 body{font-family:var(--fuente-texto);color:#2b2b2b;background:var(--sitio-fondo);-webkit-font-smoothing:antialiased}
+/* Pie siempre abajo: en una página con poco contenido, el pie bajaba solo hasta
+   donde acababa el texto y debajo quedaba una franja blanca. */
+body{min-height:100vh;display:flex;flex-direction:column}
+body>footer{margin-top:auto}
 .font-titulo{font-family:var(--fuente-titulos);font-weight:600;letter-spacing:.01em}
 .font-texto{font-family:var(--fuente-texto)}
 .eyebrow{display:inline-block;letter-spacing:.32em;text-transform:uppercase;font-size:.72rem;font-weight:600;color:var(--sitio-acento)}
