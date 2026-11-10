@@ -73,6 +73,16 @@ function tiposPropios(ed) {
         traits: [
           { type: 'text', name: 'poster', label: 'Imagen de portada (poster)' }
         ]
+      },
+      // Proyectos guardados sin «muted»: el video de fondo siempre va sin sonido
+      init() {
+        if (this.get('tagName') === 'video' && !this.getAttributes().muted) this.addAttributes({ muted: true }, { avoidStore: true });
+      }
+    },
+    view: {
+      onRender() {
+        const v = this.el;
+        if (v && v.tagName === 'VIDEO') { v.muted = true; v.defaultMuted = true; v.volume = 0; }
       }
     }
   });

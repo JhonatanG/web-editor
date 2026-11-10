@@ -348,6 +348,25 @@ const SITE_JS = `(function(){
    Va en site.js y también se usa en el lienzo. */
 function bucleFondoYT(w) {
   var d = w.document;
+  /* Los videos de fondo nunca llevan sonido. El atributo muted solo silencia
+     si el navegador lo lee al cargar el HTML: un <video> creado o cambiado
+     después (como en el editor) sonaba. Se silencia también por código. */
+  var esFondoVideo = function (v) { return v && v.tagName === 'VIDEO' && v.classList.contains('hero-video'); };
+  var callar = function (v) {
+    if (!v.muted) v.muted = true;
+    v.defaultMuted = true;
+    if (v.volume) v.volume = 0;
+    if (!v.hasAttribute('muted')) v.setAttribute('muted', '');
+  };
+  [].forEach.call(d.querySelectorAll('video.hero-video'), callar);
+  var alSonar = function (e) { if (esFondoVideo(e.target)) callar(e.target); };
+  d.addEventListener('play', alSonar, true);
+  d.addEventListener('volumechange', alSonar, true);
+  d.addEventListener('loadstart', alSonar, true);
+  // Vimeo guardado sin «muted=1»
+  [].forEach.call(d.querySelectorAll('iframe.hero-video'), function (f) {
+    if (/player\.vimeo\.com/.test(f.src) && !/[?&]muted=1/.test(f.src)) f.src += (f.src.indexOf('?') < 0 ? '?' : '&') + 'muted=1&background=1';
+  });
   var esFondoYT = function (f) { return f && f.tagName === 'IFRAME' && f.classList.contains('hero-video') && /youtube(-nocookie)?\.com\/embed\//.test(f.src); };
   var fondos = function () { return [].filter.call(d.querySelectorAll('iframe.hero-video'), esFondoYT); };
   var enviar = function (f, msg) { try { f.contentWindow.postMessage(JSON.stringify(msg), '*'); } catch (e) {} };
@@ -375,6 +394,7 @@ function bucleFondoYT(w) {
   };
   // Videos guardados antes de este cambio: se les activa la API
   fondos().forEach(function (f) {
+    if (!/[?&]mute=1/.test(f.src)) f.src += (f.src.indexOf('?') < 0 ? '?' : '&') + 'mute=1';
     if (!/[?&]enablejsapi=1/.test(f.src)) f.src += (f.src.indexOf('?') < 0 ? '?' : '&') + 'enablejsapi=1';
     else escuchar(f);
   });
@@ -392,6 +412,8 @@ function bucleFondoYT(w) {
     if (estado === 1) mostrar(f, true);
     else if (estado === -1 || estado === 0 || estado === 2 || estado === 5) mostrar(f, false);
     if (!m.info) return;
+    // Si el reproductor dice que tiene sonido, se silencia
+    if (m.info.muted === false) enviar(f, { event: 'command', func: 'mute', args: [] });
     if (m.info.duration) f._duracion = m.info.duration;
     var t = m.info.currentTime;
     if (m.info.playerState === 0 || (f._duracion && typeof t === 'number' && f._duracion - t < 1.2)) {
