@@ -230,6 +230,34 @@
           </div>
           <p class="ov-origen" id="bg-info"></p>
         </div>
+        <div class="ov" id="deg-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-palette2"></i> Degradado en movimiento</div>
+          <div class="ov-row">
+            <input type="color" id="deg-c1" title="Color 1" aria-label="Color 1">
+            <input type="color" id="deg-c2" title="Color 2" aria-label="Color 2">
+            <input type="color" id="deg-c3" title="Color 3" aria-label="Color 3">
+            <input type="color" id="deg-c4" title="Color 4" aria-label="Color 4">
+          </div>
+          <div class="ov-row" style="margin-top:8px">
+            <label for="deg-vel" class="hint" style="margin:0">Lentitud</label>
+            <input type="range" id="deg-vel" min="4" max="40" step="1" value="16" title="Segundos que tarda una vuelta">
+            <span id="deg-vel-txt">16 s</span>
+          </div>
+          <div class="ov-row ov-botones" style="margin-top:8px">
+            <button class="tb-btn primary" id="deg-poner"><i class="bi bi-plus-lg"></i> Poner degradado</button>
+            <button class="tb-btn" id="deg-quitar" title="Quitar el degradado"><i class="bi bi-trash"></i></button>
+          </div>
+          <p class="hint">Fondo de colores que se mezclan despacio. Sirve en secciones, tarjetas o botones ya hechos.</p>
+        </div>
+        <div class="ov" id="part-box" style="display:none">
+          <div class="ov-title"><i class="bi bi-stars"></i> Fondo de partículas</div>
+          <div class="ov-row ov-botones">
+            <button class="tb-btn primary" id="part-poner" title="Poner partículas animadas detrás de este elemento, sin tocar su contenido"><i class="bi bi-plus-lg"></i> Poner partículas detrás</button>
+            <button class="tb-btn" id="part-ajustes" title="Color, cantidad, velocidad y forma (en Propiedades)"><i class="bi bi-sliders"></i> Ajustes</button>
+            <button class="tb-btn" id="part-quitar" title="Quitar las partículas"><i class="bi bi-trash"></i></button>
+          </div>
+          <p class="hint" id="part-info"></p>
+        </div>
         <div id="styles"></div>
       </div>
       <div class="pane" data-group="right" data-pane="traits">
@@ -290,6 +318,7 @@
   <script src="js/previa.js"></script>
   <script src="js/publicar.js"></script>
   <script src="js/interacciones.js"></script>
+  <script src="js/efectos.js"></script>
   <script src="js/variantes.js"></script>
 </body>
 </html>

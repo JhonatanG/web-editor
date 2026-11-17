@@ -39,7 +39,7 @@ try:
         pg.wait_for_timeout(2000)
         n = E("editor.Canvas.getWindow().tsParticles.dom().filter(c => !c.destroyed).length")
         cont = V("const w = editor.Canvas.getWindow(); const c = w.tsParticles.dom().filter(c => !c.destroyed)[0]; return c ? [c.actualOptions.particles.color.value, c.actualOptions.particles.number.value] : null")
-        check('cambiar color y cantidad redibuja el fondo (sin duplicar)', n == 1 and cont == ['#ff0000', 20], [n, cont])
+        check('cambiar color y cantidad redibuja el fondo (sin duplicar)', n == 1 and cont[0] == '#ff0000' and 8 <= cont[1] < 70, [n, cont])
         check('el contenido queda encima del fondo', E("getComputedStyle(editor.Canvas.getDocument().querySelector('.seccion-particulas > .container')).zIndex") == '1')
 
         print('2. Código HTML/JS con <script> en el lienzo')

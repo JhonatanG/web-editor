@@ -23,6 +23,21 @@ const gfUrl = (lista) => 'https://fonts.googleapis.com/css2?' + lista.map(f => '
 // (canvas.scripts) y el sitio exportado, que la carga solo si hay partículas.
 const TSPARTICLES_CDN = 'https://cdn.jsdelivr.net/npm/@tsparticles/slim@3.9.1/tsparticles.slim.bundle.min.js';
 
+/* Separadores con forma entre secciones. La forma (relleno) toma el color de
+   la sección de abajo y el fondo, el de la de arriba. viewBox 1440×120. */
+const FORMAS_SEPARADOR = {
+  ola:      { nombre: 'Ola',          d: ['M0,64 C240,112 480,112 720,72 C960,32 1200,16 1440,48 L1440,120 L0,120 Z'] },
+  olas:     { nombre: 'Olas dobles',  d: ['M0,40 C320,110 640,0 960,50 C1140,78 1320,70 1440,40 L1440,120 L0,120 Z', 'M0,78 C260,118 520,40 820,72 C1080,100 1280,104 1440,80 L1440,120 L0,120 Z'] },
+  curva:    { nombre: 'Curva',        d: ['M0,120 C480,0 960,0 1440,120 Z'] },
+  diagonal: { nombre: 'Diagonal',     d: ['M0,120 L1440,0 L1440,120 Z'] },
+  picos:    { nombre: 'Picos',        d: ['M0,120 L0,90 ' + Array.from({ length: 12 }, (_, i) => `L${i * 120 + 60},30 L${i * 120 + 120},90`).join(' ') + ' L1440,120 Z'] },
+  inclinado:{ nombre: 'Inclinado suave', d: ['M0,120 L0,70 L1440,20 L1440,120 Z', 'M0,120 L0,96 L1440,46 L1440,120 Z'] }
+};
+const svgSeparador = (forma) => {
+  const f = FORMAS_SEPARADOR[forma] || FORMAS_SEPARADOR.ola;
+  return `<svg viewBox="0 0 1440 120" preserveAspectRatio="none" focusable="false">${f.d.map((d, i) => `<path fill="currentColor"${f.d.length > 1 && i === 0 ? ' opacity="0.45"' : ''} d="${d}"/>`).join('')}</svg>`;
+};
+
 const SITE_CSS = `
 :root{
   --sitio-primario:#3b5bdb;
@@ -82,6 +97,48 @@ body>footer{margin-top:auto}
 iframe.hero-video{top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100%;transform:translate(-50%,-50%) scale(1.2);border:0;pointer-events:none}
 iframe.hero-video[src*="youtube"]{opacity:0;transition:opacity .8s ease}
 iframe.hero-video[src*="youtube"].yt-ve{opacity:1}
+/* Degradado en movimiento (los colores van en background-image del elemento) */
+.degradado-anim{background-size:400% 400% !important;background-position:0% 50%;animation:degradado-mueve 16s ease infinite}
+@keyframes degradado-mueve{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+/* Separadores con forma */
+/* Transparente y montado sobre el borde de la sección vecina: así encaja
+   también con fotos, videos y degradados. Normal: la forma sube desde abajo
+   con el color de la sección de abajo y se monta sobre la de arriba.
+   Volteado: cuelga con el color de la de arriba y se monta sobre la de abajo.
+   Solo el dibujo recibe clics; lo transparente deja pasar el ratón. */
+.separador-forma{display:block;position:relative;z-index:3;height:80px;margin:-80px 0 0;line-height:0;overflow:hidden;color:var(--sitio-claro);pointer-events:none}
+.separador-forma[data-invertido="si"]{margin:0 0 -80px}
+.separador-forma svg{display:block;width:100%;height:100%}
+.separador-forma path{pointer-events:visiblePainted}
+.separador-forma[data-invertido="si"] svg{transform:scaleY(-1)}
+.separador-forma[data-espejo="si"] svg{transform:scaleX(-1)}
+.separador-forma[data-invertido="si"][data-espejo="si"] svg{transform:scale(-1,-1)}
+/* Línea de tiempo */
+.linea-tiempo{position:relative;list-style:none;margin:0 auto;padding:0;max-width:980px}
+.linea-tiempo::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;background:rgba(27,37,89,.15);transform:translateX(-50%)}
+.lt-item{position:relative;width:50%;padding:0 3rem 2.5rem 0}
+.lt-item:nth-child(even){margin-left:50%;padding:0 0 2.5rem 3rem}
+.lt-punto{position:absolute;top:1.6rem;right:-.55rem;width:1.1rem;height:1.1rem;border-radius:50%;background:var(--sitio-primario);box-shadow:0 0 0 4px var(--sitio-claro),0 0 0 6px var(--sitio-primario)}
+.lt-item:nth-child(even) .lt-punto{right:auto;left:-.55rem}
+.lt-tarjeta{background:#fff;border-radius:var(--sitio-radio);padding:1.5rem 1.6rem;box-shadow:0 10px 30px rgba(20,30,60,.08)}
+.lt-item:nth-child(odd) .lt-tarjeta{text-align:right}
+.lt-fecha{display:inline-block;font-weight:700;font-size:.85rem;letter-spacing:.12em;color:var(--sitio-primario);margin-bottom:.35rem}
+.lt-titulo{font-family:var(--fuente-titulos);font-size:1.35rem;margin-bottom:.5rem}
+.lt-tarjeta p{margin:0;color:#6c757d}
+@media (max-width:767.98px){
+  .linea-tiempo::before{left:.55rem}
+  .lt-item,.lt-item:nth-child(even){width:100%;margin-left:0;padding:0 0 1.75rem 2.6rem}
+  .lt-punto,.lt-item:nth-child(even) .lt-punto{left:0;right:auto}
+  .lt-item:nth-child(odd) .lt-tarjeta{text-align:left}
+}
+/* Contador animado: cifras de ancho fijo para que no «bailen» al contar */
+.dato,[data-contador="si"]{font-variant-numeric:tabular-nums}
+/* Tarjetas que se inclinan en 3D (js/tarjetas-3d.js) */
+[data-inclinar="si"]{transition:transform .5s cubic-bezier(.2,.8,.2,1),box-shadow .4s ease}
+[data-inclinar="si"].inclinando{transition:transform .08s linear,box-shadow .3s ease;box-shadow:0 22px 45px rgba(20,30,60,.18)}
+.brillo-3d{position:absolute;top:0;right:0;bottom:0;left:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s ease;background:radial-gradient(circle at var(--bx,50%) var(--by,50%),rgba(255,255,255,.35),transparent 60%)}
+.inclinando>.brillo-3d{opacity:1}
+@media (prefers-reduced-motion:reduce){.degradado-anim{animation:none}}
 /* Estilo «Prisma»: menú en pestaña colgante y hero enmarcado con marca gigante */
 .nav-pestana{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:1030;max-width:calc(100% - 2rem);background:#000;border-radius:0 0 1.5rem 1.5rem;padding:.55rem 2rem}
 .nav-pestana-lista{display:flex;align-items:center;gap:clamp(.9rem,3.5vw,3.25rem);list-style:none;margin:0;padding:0;white-space:nowrap;overflow-x:auto;scrollbar-width:none}
@@ -113,6 +170,13 @@ iframe.hero-video[src*="youtube"].yt-ve{opacity:1}
 .fondo-particulas{position:absolute;top:0;right:0;bottom:0;left:0;z-index:0}
 .fondo-particulas canvas{display:block}
 .seccion-particulas>.container{position:relative;z-index:1;padding-top:5rem;padding-bottom:5rem}
+/* Partículas puestas detrás de algo ya construido: quedan sobre el fondo del
+   elemento y debajo de su contenido (z-index negativo dentro de su propio
+   contexto de apilamiento), sin cambiar cómo se ve ni dónde está nada */
+.con-particulas{isolation:isolate}
+.con-particulas-rel{position:relative}
+.con-particulas>.fondo-particulas{z-index:-1;pointer-events:none;overflow:hidden}
+.con-particulas>.fondo-particulas-sobre{z-index:1}
 .overlay{position:absolute;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.45);z-index:1}
 .hero-contenido{position:relative;z-index:2;max-width:880px;padding:7rem 1.5rem 5rem}
 .hero h1{font-family:var(--fuente-titulos);font-weight:600;font-size:clamp(2.4rem,5.5vw,4.6rem);line-height:1.1;text-shadow:0 2px 24px rgba(0,0,0,.35)}

@@ -121,24 +121,32 @@ function tiposPropios(ed) {
           var enlaces = d.enlaces !== 'no';
           var forma = d.forma || 'circle';
           if (w.matchMedia && w.matchMedia('(prefers-reduced-motion: reduce)').matches) vel = 0;
+          // Se adapta al tamaño del elemento: en zonas pequeñas, menos
+          // partículas, más pequeñas y con líneas más cortas
+          var r = el.getBoundingClientRect();
+          var ancho = r.width || 800, alto = r.height || 400, lado = Math.min(ancho, alto);
+          var proporcion = Math.min(1.5, (ancho * alto) / (1200 * 650));
+          var cantidad = Math.max(8, Math.round(num(d.cantidad, 70) * proporcion));
+          var distancia = Math.max(45, Math.min(140, lado / 2.6));
+          var tam = lado < 220 ? 2.5 : (forma === 'circle' ? 3.5 : 5);
           var opciones = {
             fullScreen: { enable: false },
             background: { color: { value: 'transparent' } },
             detectRetina: true,
             fpsLimit: 60,
             particles: {
-              number: { value: num(d.cantidad, 70), density: { enable: true } },
+              number: { value: cantidad, density: { enable: false } },
               color: { value: color },
               shape: forma === 'triangle' ? { type: 'polygon', options: { polygon: { sides: 3 } } } : { type: forma },
               opacity: { value: { min: 0.3, max: 0.8 } },
-              size: { value: { min: 1, max: forma === 'circle' ? 3.5 : 5 } },
-              links: { enable: enlaces, color: color, distance: 140, opacity: 0.35, width: 1 },
+              size: { value: { min: 1, max: tam } },
+              links: { enable: enlaces, color: color, distance: distancia, opacity: 0.35, width: 1 },
               move: { enable: vel > 0, speed: vel, outModes: { default: 'out' } }
             },
             interactivity: {
               detectsOn: 'window',
               events: { onHover: { enable: vel > 0, mode: enlaces ? 'grab' : 'repulse' }, resize: { enable: true } },
-              modes: { grab: { distance: 170, links: { opacity: 0.7 } }, repulse: { distance: 90 } }
+              modes: { grab: { distance: distancia * 1.2, links: { opacity: 0.7 } }, repulse: { distance: Math.min(90, lado / 3) } }
             }
           };
           var arrancar = function () {
@@ -166,6 +174,51 @@ function tiposPropios(ed) {
         // Cambiar color, cantidad… en Propiedades vuelve a dibujar el fondo
         this.on('change:attributes', () => this.trigger('rerender'));
       }
+    }
+  });
+
+  /* ---------- Separador con forma entre secciones ----------
+     El dibujo (SVG) es «content» del componente: no se puede seleccionar por
+     partes y se rehace al cambiar la forma. Color de la forma = color del
+     texto (currentColor) y fondo = color de fondo, ambos en Estilo o aquí. */
+  dc.addType('separador-forma', {
+    isComponent: el => el.classList && el.classList.contains('separador-forma') && { type: 'separador-forma', components: [] },
+    model: {
+      defaults: {
+        name: 'Separador con forma',
+        tagName: 'div',
+        droppable: false,
+        attributes: { class: 'separador-forma', 'aria-hidden': 'true', 'data-forma': 'ola', 'data-invertido': 'no', 'data-espejo': 'no' },
+        traits: [
+          { type: 'select', name: 'data-forma', label: 'Forma', options: Object.entries(FORMAS_SEPARADOR).map(([id, f]) => ({ id, name: f.nombre })) },
+          { type: 'color', name: 'sf-forma', label: 'Color de la forma', changeProp: true },
+          { type: 'number', name: 'sf-alto', label: 'Alto (px)', min: 20, max: 300, step: 5, changeProp: true },
+          { type: 'checkbox', name: 'data-invertido', label: 'Dar la vuelta (arriba ↕ abajo)', valueTrue: 'si', valueFalse: 'no' },
+          { type: 'checkbox', name: 'data-espejo', label: 'Reflejar (izquierda ↔ derecha)', valueTrue: 'si', valueFalse: 'no' }
+        ]
+      },
+      init() {
+        this.components().reset();
+        this.dibujar();
+        const st = this.getStyle();
+        this.set({ 'sf-forma': st.color || '', 'sf-alto': parseInt(st.height, 10) || 80 }, { silent: true });
+        this.on('change:attributes:data-forma', this.dibujar);
+        // El alto también fija cuánto se monta sobre la sección vecina
+        this.on('change:sf-forma change:sf-alto change:attributes:data-invertido', () => {
+          const s = { ...this.getStyle() };
+          if (this.get('sf-forma')) s.color = this.get('sf-forma'); else delete s.color;
+          const alto = parseInt(this.get('sf-alto'), 10);
+          delete s.margin; delete s['margin-top']; delete s['margin-bottom'];
+          if (alto && alto !== 80) {
+            s.height = alto + 'px';
+            const volteado = this.getAttributes()['data-invertido'] === 'si';
+            s['margin-top'] = volteado ? '0' : -alto + 'px';
+            s['margin-bottom'] = volteado ? -alto + 'px' : '0';
+          } else delete s.height;
+          this.setStyle(s);
+        });
+      },
+      dibujar() { this.set('content', svgSeparador(this.getAttributes()['data-forma'])); }
     }
   });
 
@@ -1008,6 +1061,94 @@ function origenDe(src, nombre) {
   };
   $('#img-apply').onclick = aplicar;
   url.addEventListener('keydown', (e) => { if (e.key === 'Enter') aplicar(); });
+})();
+
+/* 6a2. Partículas detrás de cualquier elemento ya construido
+   Se añade un <div class="fondo-particulas"> como primer hijo (o tras la capa
+   oscura / el video del hero) y el elemento recibe «con-particulas»: crea su
+   propio contexto de apilamiento (isolation) para que las partículas queden
+   sobre su fondo pero debajo de su contenido, sin mover nada. El fondo ocupa
+   todo el elemento y se adapta a su tamaño, aunque sea pequeño. */
+const TAGS_CON_PARTICULAS = ['section', 'div', 'header', 'footer', 'main', 'article', 'aside', 'nav', 'form', 'figure', 'li'];
+const esFondoParticulas = (c) => !!c && c.get && c.get('type') === 'fondo-particulas';
+function destinoParticulas(c) {
+  const w = editor.getWrapper();
+  if (!c || c === w) return null;
+  if (esFondoParticulas(c)) return c.parent();
+  let d = c;
+  while (d && d !== w && !(TAGS_CON_PARTICULAS.includes(tagDe(d)) && !d.is('custom-code'))) d = d.parent();
+  if (!d || d === w) return null;
+  // Hero enmarcado: las partículas van dentro del marco redondeado
+  if (tieneClase(d, 'hero-marco')) return d.components().find(x => tieneClase(x, 'hero-marco-lienzo')) || d;
+  return d;
+}
+const particulasDe = (d) => d && d.components().find(esFondoParticulas);
+function ponerParticulas(d) {
+  if (!d || particulasDe(d)) return particulasDe(d);
+  const el = d.getEl(), win = el && el.ownerDocument.defaultView;
+  const cs = win ? win.getComputedStyle(el) : null;
+  // Partículas claras sobre fondos oscuros y del color principal sobre fondos claros
+  const fondo = (() => {
+    for (let e = el; e && win; e = e.parentElement) {
+      const m = win.getComputedStyle(e).backgroundColor.match(/[\d.]+/g);
+      if (m && (m.length < 4 || +m[3] > 0.1)) return m.slice(0, 3).map(Number);
+      if (win.getComputedStyle(e).backgroundImage !== 'none') return [30, 30, 30];
+    }
+    return [255, 255, 255];
+  })();
+  const claro = (0.299 * fondo[0] + 0.587 * fondo[1] + 0.114 * fondo[2]) > 150;
+  const color = claro ? (TEMA && TEMA.primario) || '#3b5bdb' : '#ffffff';
+  // Detrás de la capa oscura o el video del hero, si los hay
+  let at = 0;
+  d.components().forEach((k, i) => { if (tieneClase(k, 'overlay') || tieneClase(k, 'hero-marco-degradado') || k.is('video-fondo')) at = i + 1; });
+  d.addClass('con-particulas');
+  if (cs && cs.position === 'static') d.addClass('con-particulas-rel');
+  const nuevo = d.append(`<div class="fondo-particulas${at ? ' fondo-particulas-sobre' : ''}" data-gjs-type="fondo-particulas" aria-hidden="true" data-color="${color}" data-cantidad="70" data-velocidad="1.2" data-enlaces="si" data-forma="circle"></div>`, { at })[0];
+  return nuevo;
+}
+function quitarParticulas(d) {
+  const f = particulasDe(d);
+  if (f) f.remove();
+  if (d) { d.removeClass('con-particulas'); d.removeClass('con-particulas-rel'); }
+}
+(() => {
+  const box = $('#part-box'), info = $('#part-info');
+  const mostrar = () => {
+    const d = destinoParticulas(editor.getSelected());
+    box.style.display = d ? '' : 'none';
+    if (!d) return;
+    const tiene = !!particulasDe(d);
+    $('#part-poner').style.display = tiene ? 'none' : '';
+    $('#part-ajustes').style.display = tiene ? '' : 'none';
+    $('#part-quitar').style.display = tiene ? '' : 'none';
+    const nombre = d.getName ? d.getName() : tagDe(d);
+    info.innerHTML = tiene
+      ? `Este elemento (<b>${SIN_HTML(nombre)}</b>) tiene partículas detrás. «Ajustes» abre su color, cantidad, velocidad y forma.`
+      : `Se ponen detrás de <b>${SIN_HTML(nombre)}</b> y ocupan todo su tamaño; su contenido no se mueve.`;
+  };
+  editor.on('component:selected component:deselected component:update:components', mostrar);
+  $('#part-poner').onclick = () => {
+    const d = destinoParticulas(editor.getSelected());
+    if (!d) return;
+    ponerParticulas(d);
+    mostrar();
+    toast('Partículas añadidas detrás. Ctrl+Z las quita.');
+  };
+  $('#part-quitar').onclick = () => {
+    const d = destinoParticulas(editor.getSelected());
+    if (!d) return;
+    const sel = editor.getSelected();
+    quitarParticulas(d);
+    if (esFondoParticulas(sel)) editor.select(d);
+    mostrar();
+    toast('Partículas quitadas');
+  };
+  $('#part-ajustes').onclick = () => {
+    const f = particulasDe(destinoParticulas(editor.getSelected()));
+    if (!f) return;
+    editor.select(f);
+    showTab('right', 'traits');
+  };
 })();
 
 /* 6b. Imagen de fondo de cualquier elemento */

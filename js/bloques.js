@@ -33,6 +33,9 @@ add('est', 'cols-4-8',        '4 + 8',             'layout-sidebar',      '<div 
 add('est', 'flex-row',        'Flex horizontal',   'arrow-left-right',    '<div class="d-flex gap-3 align-items-center py-3"></div>');
 add('est', 'flex-col',        'Flex vertical',     'arrow-down-up',       '<div class="d-flex flex-column gap-3 py-3"></div>');
 add('est', 'divider',         'Separador',         'dash-lg',             '<hr class="my-4">');
+Object.entries(FORMAS_SEPARADOR).forEach(([id, f]) =>
+  add('est', 'sep-' + id, 'Separador: ' + f.nombre.toLowerCase(), 'water',
+    `<div class="separador-forma" data-gjs-type="separador-forma" aria-hidden="true" data-forma="${id}" data-invertido="no" data-espejo="no"></div>`));
 add('est', 'spacer',          'Espaciador',        'arrows-expand',       '<div class="py-4"></div>');
 
 /* ---------- Bloques de sitio web (secciones completas listas para usar) ---------- */
@@ -182,9 +185,9 @@ const SITIO = (() => {
 <h2 class="font-titulo display-5 mt-3 mb-4" data-reveal="fade-up">Resultados que hablan</h2>
 <p class="lead col-lg-8 mx-auto mb-5" data-reveal="fade-up">Muestra los números más importantes de tu proyecto sobre una imagen de fondo fija.</p>
 <div class="row g-4 justify-content-center" data-reveal="fade-up">
-  <div class="col-6 col-md-3"><div class="dato">+120</div><div class="small text-uppercase mt-2" style="letter-spacing:.2em">proyectos</div></div>
-  <div class="col-6 col-md-3"><div class="dato">15</div><div class="small text-uppercase mt-2" style="letter-spacing:.2em">años de experiencia</div></div>
-  <div class="col-6 col-md-3"><div class="dato">100%</div><div class="small text-uppercase mt-2" style="letter-spacing:.2em">compromiso</div></div>
+  <div class="col-6 col-md-3"><div class="dato" data-contador="si">+120</div><div class="small text-uppercase mt-2" style="letter-spacing:.2em">proyectos</div></div>
+  <div class="col-6 col-md-3"><div class="dato" data-contador="si">15</div><div class="small text-uppercase mt-2" style="letter-spacing:.2em">años de experiencia</div></div>
+  <div class="col-6 col-md-3"><div class="dato" data-contador="si">100%</div><div class="small text-uppercase mt-2" style="letter-spacing:.2em">compromiso</div></div>
 </div>
   </div>
 </section>`;

@@ -42,6 +42,44 @@ const SEC_EXTRA = (() => {
 </div>
   </div>
 </section>`;
+  // Línea de tiempo: historia, procesos o pasos (alterna a los lados; en móvil, una columna)
+  S.lineaTiempo = () => `
+<section class="seccion fondo-claro" id="historia">
+  <div class="container">
+<div class="text-center mb-5"><span class="eyebrow">Nuestra historia</span><h2 class="font-titulo display-6 mt-3">Cómo llegamos hasta aquí</h2><p class="text-secondary col-lg-7 mx-auto">Cuenta los momentos clave o los pasos de tu proceso. Duplica un hito para añadir más.</p></div>
+<ol class="linea-tiempo">
+${[['2015', 'El comienzo', 'Cuenta cómo nació el proyecto y qué los motivó a empezar.'],
+   ['2018', 'Primer gran logro', 'Un hito importante: un cliente, un premio o un lanzamiento.'],
+   ['2021', 'Crecimiento', 'Nuevos servicios, más equipo o una nueva sede.'],
+   ['Hoy', 'Lo que viene', 'Hacia dónde van y qué pueden esperar sus clientes.']]
+  .map(([f, t, d], i) => `  <li class="lt-item" data-reveal="${i % 2 ? 'fade-left' : 'fade-right'}"><span class="lt-punto" aria-hidden="true"></span><div class="lt-tarjeta"><span class="lt-fecha">${f}</span><h3 class="lt-titulo">${t}</h3><p>${d}</p></div></li>`).join('')}
+</ol>
+  </div>
+</section>`;
+  // Cifras que cuentan desde 0 al aparecer (js/contadores.js)
+  S.cifras = () => `
+<section class="seccion" id="cifras">
+  <div class="container">
+<div class="text-center mb-5"><span class="eyebrow">En cifras</span><h2 class="font-titulo display-6 mt-3">Resultados que hablan por nosotros</h2></div>
+<div class="row g-4 text-center">
+${[['+1.200', 'clientes atendidos'], ['15', 'años de experiencia'], ['98%', 'recomiendan'], ['4,9', 'valoración media']]
+  .map(([n, t]) => `  <div class="col-6 col-lg-3"><div class="dato" data-contador="si">${n}</div><div class="small text-uppercase text-secondary mt-2" style="letter-spacing:.2em">${t}</div></div>`).join('')}
+</div>
+  </div>
+</section>`;
+  // Hero con degradado en movimiento (los colores se cambian en Estilo → Degradado en movimiento)
+  S.heroDegradado = () => `
+<section class="hero degradado-anim" id="inicio" data-degradado="#ee7752,#e73c7e,#23a6d5,#23d5ab" style="background-image:linear-gradient(-45deg,#ee7752,#e73c7e,#23a6d5,#23d5ab)">
+  <div class="hero-contenido">
+<span class="eyebrow text-white">Bienvenido</span>
+<h1 class="mt-3 mb-4" data-reveal="fade-up">Un fondo de colores que se mueve</h1>
+<p class="lead mb-5">Cambia los colores y la velocidad en Estilo → «Degradado en movimiento».</p>
+<a href="contacto.html" class="btn-sitio-claro">Empezar</a>
+  </div>
+</section>`;
+  // Las mismas tarjetas de servicios, pero se inclinan en 3D con el ratón
+  S.servicios3d = () => S.serviciosIconos().replace('id="servicios"', 'id="servicios-3d"').replace(/<article class="servicio-ico">/g, '<article class="servicio-ico" data-inclinar="si">');
+  S.separador = () => `<div class="separador-forma" data-gjs-type="separador-forma" aria-hidden="true" data-forma="ola" data-invertido="no" data-espejo="no"></div>`;
   S.heroDividido = () => `
 <section class="seccion hero-dividido fondo-claro" id="inicio">
   <div class="container">
@@ -120,10 +158,13 @@ const SECCIONES = [
   { id: 's-hero-img', cat: 'hero', nombre: 'Hero con imagen de fondo', bloque: 's-hero-img' },
   { id: 'sec-hero-marco', cat: 'hero', nombre: 'Hero enmarcado con nombre gigante (estilo Prisma)', html: SEC_EXTRA.heroMarco },
   { id: 'sec-hero-prisma', cat: 'hero', nombre: 'Menú en pestaña + hero enmarcado (estilo Prisma)', html: () => SEC_EXTRA.menuPestana() + SEC_EXTRA.heroMarco() },
+  { id: 'sec-hero-degradado', cat: 'hero', nombre: 'Hero con degradado en movimiento', html: SEC_EXTRA.heroDegradado },
   { id: 'sec-hero-dividido', cat: 'hero', nombre: 'Hero dividido: texto e imagen', html: SEC_EXTRA.heroDividido },
   { id: 's-banner', cat: 'hero', nombre: 'Cabecera de página interior', bloque: 's-banner' },
   { id: 'hero', cat: 'hero', nombre: 'Hero centrado (Bootstrap)', bloque: 'hero' },
   { id: 'sec-servicios-iconos', cat: 'servicios', nombre: 'Servicios con íconos', html: SEC_EXTRA.serviciosIconos },
+  { id: 'sec-servicios-3d', cat: 'servicios', nombre: 'Servicios con tarjetas 3D', html: SEC_EXTRA.servicios3d },
+  { id: 'sec-linea-tiempo', cat: 'servicios', nombre: 'Línea de tiempo (historia o pasos)', html: SEC_EXTRA.lineaTiempo },
   { id: 's-servicios', cat: 'servicios', nombre: 'Servicios con foto y precio', bloque: 's-servicios' },
   { id: 's-destacados', cat: 'servicios', nombre: 'Destacados (4 tarjetas)', bloque: 's-destacados' },
   { id: 's-split-izq', cat: 'servicios', nombre: 'Imagen + texto', bloque: 's-split-izq' },
@@ -142,11 +183,13 @@ const SECCIONES = [
   { id: 'sec-contacto-mapa', cat: 'contacto', nombre: 'Contacto con formulario y mapa', html: () => SITIO.L.contacto() + SITIO.L.mapa() },
   { id: 's-newsletter', cat: 'contacto', nombre: 'Suscripción', bloque: 's-newsletter' },
   { id: 'sec-cta', cat: 'cta', nombre: 'Llamada a la acción', html: SEC_EXTRA.cta },
+  { id: 'sec-cifras', cat: 'cta', nombre: 'Cifras animadas (cuentan al aparecer)', html: SEC_EXTRA.cifras },
   { id: 's-parallax', cat: 'cta', nombre: 'Cifras sobre fondo fijo', bloque: 's-parallax' },
   { id: 'team', cat: 'cta', nombre: 'Equipo', bloque: 'team' },
   { id: 's-nav', cat: 'estructura', nombre: 'Menú transparente', bloque: 's-nav' },
   { id: 'sec-menu-pestana', cat: 'estructura', nombre: 'Menú en pestaña (estilo Prisma)', html: SEC_EXTRA.menuPestana },
   { id: 'navbar-light', cat: 'estructura', nombre: 'Menú claro', bloque: 'navbar-light' },
+  { id: 'sec-separador', cat: 'estructura', nombre: 'Separador con forma (ola, curva, diagonal…)', html: SEC_EXTRA.separador },
   { id: 's-pie', cat: 'estructura', nombre: 'Pie con foto y redes', bloque: 's-pie' },
   { id: 'footer', cat: 'estructura', nombre: 'Pie sencillo', bloque: 'footer' }
 ];
