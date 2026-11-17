@@ -44,10 +44,31 @@ function leerPublicacion(d) {
   PUB = { ...PUB_DEF };
   Object.keys(PUB_DEF).forEach(k => { if (typeof p[k] === 'string') PUB[k] = p[k].slice(0, 300); });
   if (!['servicio', 'url', 'correo'].includes(PUB.formDestino)) PUB.formDestino = 'servicio';
+  leerPrecarga(d);
 }
-const alGuardarProyecto = (d) => ({ ...d, __formato: FORMATO_PROYECTO, __publicacion: { ...PUB } });
+
+/* Pantalla de carga del sitio (logo mientras carga y efecto de salida) */
+const PRE_DEF = { activo: false, fuente: 'menu', logo: '', texto: '', fondo: 'claro', color: '#ffffff', anim: 'pulso', salida: 'desvanecer', minimo: 600, unaVez: true };
+const PRE_OPCIONES = {
+  fuente: ['menu', 'imagen', 'texto'],
+  fondo: ['claro', 'osc', 'primario', 'personal'],
+  anim: ['pulso', 'giro', 'barra', 'puntos', 'ninguna'],
+  salida: ['desvanecer', 'subir', 'cortina', 'zoom', 'ninguna']
+};
+let PRE = { ...PRE_DEF };
+function leerPrecarga(d) {
+  const p = (d && typeof d.__precarga === 'object' && d.__precarga) || {};
+  PRE = { ...PRE_DEF };
+  Object.keys(PRE_DEF).forEach(k => { if (typeof p[k] === typeof PRE_DEF[k]) PRE[k] = p[k]; });
+  Object.keys(PRE_OPCIONES).forEach(k => { if (!PRE_OPCIONES[k].includes(PRE[k])) PRE[k] = PRE_DEF[k]; });
+  if (!/^#[0-9a-f]{6}$/i.test(PRE.color)) PRE.color = PRE_DEF.color;
+  if (!/^(data:image\/|https?:\/\/)/i.test(PRE.logo)) PRE.logo = '';
+  PRE.texto = PRE.texto.slice(0, 80);
+  PRE.minimo = Math.max(0, Math.min(3000, Math.round(PRE.minimo) || 0));
+}
+const alGuardarProyecto = (d) => ({ ...d, __formato: FORMATO_PROYECTO, __publicacion: { ...PUB }, __precarga: { ...PRE } });
 const alCargarProyecto = (d) => {
   leerPublicacion(d);
-  if (d) { delete d.__publicacion; delete d.__formato; }
+  if (d) { delete d.__publicacion; delete d.__precarga; delete d.__formato; }
   return d;
 };

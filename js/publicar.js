@@ -49,7 +49,7 @@ async function paqueteDePublicacion() {
 }
 function proyectoParaGuardar() {
   const p = editor.getProjectData();
-  p.__tema = TEMA; p.__publicacion = { ...PUB }; p.__formato = FORMATO_PROYECTO;
+  p.__tema = TEMA; p.__publicacion = { ...PUB }; p.__precarga = { ...PRE }; p.__formato = FORMATO_PROYECTO;
   return JSON.stringify(p);
 }
 

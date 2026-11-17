@@ -79,11 +79,12 @@ function paginasDelSitio(modo, avisos) {
     const css = editor.getCss({ component: comp }) || '';
     const js = editor.getJs ? (editor.getJs({ component: comp }) || '') : '';
     const cuerpo = prepararCuerpo(html, modo, avisos, n + '.html');
+    if (PRE.activo && typeof marcadoPrecarga === 'function') cuerpo.inner = marcadoPrecarga(cuerpo.inner, modo) + cuerpo.inner;
     return { page, n, archivo: n + '.html', titulo: page.get('seoTitulo') || nombrePagina(page), desc: page.get('seoDesc') || '', ...cuerpo, css, js };
   });
 }
 
-const siteCssCompleto = () => SITE_CSS + '\n\n/* Identidad visual elegida en el panel «Sitio» del editor.\n   Cambia estos valores y cambia el sitio entero. */\n' + temaCss() + '\n';
+const siteCssCompleto = () => SITE_CSS + (PRE.activo && typeof CSS_PRECARGA === 'string' ? '\n' + CSS_PRECARGA : '') + '\n\n/* Identidad visual elegida en el panel «Sitio» del editor.\n   Cambia estos valores y cambia el sitio entero. */\n' + temaCss() + '\n';
 const escScript = (t) => String(t).replace(/<\/script/gi, '<\\/script');
 
 // Documento HTML completo de una página. inline: CSS y JS dentro del HTML (vista previa)
@@ -114,7 +115,7 @@ function documentoPagina(p, o) {
 <link href="${gfUrl(usadas)}" rel="stylesheet">
 ${css('css/site.css', siteCssCompleto())}
 ${css(`css/${p.n}.css`, p.css)}
-<script>${HEAD_JS}<\/script>${previa}
+<script>${HEAD_JS}${PRE.activo && typeof HEAD_PRECARGA === 'string' ? HEAD_PRECARGA : ''}<\/script>${PRE.activo ? '\n<noscript><style>.precarga{display:none}</style></noscript>' : ''}${previa}
 </head>
 <body${p.attrs}>${saltar}${p.inner}${scripts}</body>
 </html>`;

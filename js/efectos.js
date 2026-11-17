@@ -207,3 +207,116 @@ editor.on('component:add', (c) => {
     toast('Degradado quitado');
   };
 })();
+
+/* ---------- Runtime: texto que se escribe letra por letra ----------
+   Empieza cuando el texto aparece en pantalla. Respeta lo que hay dentro
+   (negritas, colores, saltos de línea). Con «otras frases» borra y escribe
+   la siguiente. Reserva el alto para que la página no salte, y los lectores
+   de pantalla leen el texto completo. Con «reducir movimiento» queda tal cual. */
+const RUNTIME_ESCRIBIR = `(function(){
+  var d=document;
+  var els=[].slice.call(d.querySelectorAll('[data-escribir="si"]:not([data-contador="si"])'));
+  if(!els.length) return;
+  var listo=function(el){ el.classList.add('escribir-listo'); };
+  if(!('IntersectionObserver' in window)||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)){ els.forEach(listo); return; }
+  var unidades=function(raiz){
+    var w=d.createTreeWalker(raiz,NodeFilter.SHOW_TEXT,null), u=[], n;
+    while((n=w.nextNode())){ var t=n.nodeValue.replace(/\\s+/g,' '); if(/\\S/.test(t)) u.push({n:n,t:t}); }
+    return u;
+  };
+  var preparar=function(el){
+    var texto=el.textContent.replace(/\\s+/g,' ').trim();
+    if(!texto){ listo(el); return null; }
+    var frases=(el.getAttribute('data-escribir-frases')||'').split('|').map(function(s){ return s.trim(); }).filter(Boolean);
+    var caja=d.createElement('span'); caja.setAttribute('aria-hidden','true');
+    while(el.firstChild) caja.appendChild(el.firstChild);
+    var original=caja.cloneNode(true);
+    var leer=d.createElement('span'); leer.className='visually-hidden';
+    leer.textContent=[texto].concat(frases).join('. ');
+    el.appendChild(caja); el.appendChild(leer);
+    var montar=function(i){
+      while(caja.firstChild) caja.removeChild(caja.firstChild);
+      if(i===0) [].slice.call(original.cloneNode(true).childNodes).forEach(function(x){ caja.appendChild(x); });
+      else caja.appendChild(d.createTextNode(frases[i-1]));
+      return unidades(caja);
+    };
+    var alto=0;
+    for(var i=frases.length;i>=0;i--){ montar(i); alto=Math.max(alto,el.offsetHeight); }
+    if(getComputedStyle(el).display!=='inline') el.style.minHeight=alto+'px';
+    var u0=montar(0);
+    u0.forEach(function(x){ x.n.nodeValue=''; });
+    listo(el);
+    return { el:el, montar:montar, u0:u0, total:frases.length+1 };
+  };
+  var animar=function(o){
+    var vel=parseInt(o.el.getAttribute('data-escribir-vel'),10)||60;
+    var repetir=o.el.getAttribute('data-escribir-repetir')==='si';
+    var i=0, u=[], k=0, pos=0, primera=true;
+    var escribir=function(){
+      u=primera?o.u0:o.montar(i); primera=false;
+      u.forEach(function(x){ x.n.nodeValue=''; }); k=0; pos=0; paso();
+    };
+    var paso=function(){
+      while(k<u.length&&pos>=u[k].t.length){ k++; pos=0; }
+      if(k>=u.length) return fin();
+      pos++; u[k].n.nodeValue=u[k].t.slice(0,pos);
+      var c=u[k].t.charAt(pos-1);
+      setTimeout(paso,vel*(/[.,;:!?]/.test(c)?4:1)*(0.6+Math.random()*0.8));
+    };
+    var fin=function(){
+      if(i===o.total-1&&!repetir){ o.el.classList.add('escribir-fin'); return; }
+      setTimeout(borrar,1800);
+    };
+    var borrar=function(){
+      var j=u.length-1;
+      while(j>=0&&!u[j].n.nodeValue.length) j--;
+      if(j<0){ i=(i+1)%o.total; setTimeout(escribir,400); return; }
+      u[j].n.nodeValue=u[j].n.nodeValue.slice(0,-1);
+      setTimeout(borrar,Math.max(15,vel/2.5));
+    };
+    escribir();
+  };
+  var io=new IntersectionObserver(function(en){
+    en.forEach(function(x){ if(x.isIntersecting){ io.unobserve(x.target); animar(x.target.__escribir); } });
+  },{threshold:0.5});
+  els.forEach(function(el){ var o=preparar(el); if(o){ el.__escribir=o; io.observe(el); } });
+})();`;
+RUNTIMES_EXTRA.push({ archivo: 'escribir.js', codigo: RUNTIME_ESCRIBIR, usa: (html) => /data-escribir="si"/.test(html) });
+
+/* ---------- Propiedades: «Escribir letra por letra» ----------
+   Cualquier texto (también los que ya están hechos). Al activarlo aparecen
+   sus opciones; al quitarlo se borran. */
+const TRAITS_ESCRIBIR = [
+  { type: 'select', name: 'data-escribir-vel', label: 'Velocidad de escritura', options: [{ id: '110', label: 'Lenta' }, { id: '60', label: 'Normal' }, { id: '30', label: 'Rápida' }] },
+  { type: 'checkbox', name: 'data-escribir-cursor', label: 'Cursor parpadeando', valueTrue: 'si', valueFalse: 'no' },
+  { type: 'text', name: 'data-escribir-frases', label: 'Otras frases (sepáralas con |)', placeholder: 'Diseño web | Fotografía | Marketing' },
+  { type: 'checkbox', name: 'data-escribir-repetir', label: 'Repetir sin parar', valueTrue: 'si', valueFalse: 'no' }
+];
+function traitsEscribir(c) {
+  const activo = c.getAttributes()['data-escribir'] === 'si';
+  const tiene = !!c.getTrait('data-escribir-vel');
+  if (activo === tiene) return;
+  if (!activo) { TRAITS_ESCRIBIR.forEach(t => { if (c.getTrait(t.name)) c.removeTrait(t.name); }); return; }
+  const base = c.getTrait('data-escribir');
+  c.addTrait(TRAITS_ESCRIBIR, { at: base ? c.getTraits().indexOf(base) + 1 : undefined });
+}
+editor.on('component:selected', (c) => {
+  if (!c || !c.getTrait || !c.is || !c.is('text') || c.getTrait('data-escribir')) return;
+  if (!textoPlano(c).trim()) return;
+  c.addTrait({ type: 'checkbox', name: 'data-escribir', label: 'Escribir letra por letra', valueTrue: 'si', valueFalse: 'no' });
+  traitsEscribir(c);
+});
+editor.on('component:update:attributes', (c) => {
+  if (!c || !c.getAttributes || !c.getTrait || !c.getTrait('data-escribir')) return;
+  const a = c.getAttributes();
+  if (a['data-escribir'] === 'si' && !a['data-escribir-vel']) {
+    // Valores de partida; un número que «cuenta» no puede escribirse a la vez
+    const extra = { 'data-escribir-vel': '60', 'data-escribir-cursor': 'si' };
+    if (a['data-contador'] === 'si') extra['data-contador'] = 'no';
+    c.addAttributes(extra);
+  }
+  else if (a['data-escribir'] !== 'si' && TRAITS_ESCRIBIR.some(t => t.name in a)) {
+    c.removeAttributes(TRAITS_ESCRIBIR.map(t => t.name).concat(a['data-escribir'] === 'no' ? ['data-escribir'] : []));
+  }
+  traitsEscribir(c);
+});

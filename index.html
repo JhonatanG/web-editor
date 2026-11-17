@@ -145,6 +145,67 @@
           <button class="tb-btn" id="t-reset" style="margin-top:14px;width:100%;justify-content:center"><i class="bi bi-arrow-counterclockwise"></i> Restablecer identidad</button>
         </div>
 
+        <div class="ov" id="pl-box">
+          <div class="ov-title"><i class="bi bi-hourglass-split"></i> Pantalla de carga</div>
+          <label class="t-check">
+            <input type="checkbox" id="pl-activo">
+            <span>Mostrar el logo mientras carga la página</span>
+          </label>
+          <div id="pl-opciones">
+            <label class="t-lbl" for="pl-fuente">Qué se muestra</label>
+            <select class="ov-text" id="pl-fuente">
+              <option value="menu">El logo del menú</option>
+              <option value="imagen">Otra imagen</option>
+              <option value="texto">Un texto</option>
+            </select>
+            <div class="ov-row" id="pl-img-fila" style="margin-top:6px">
+              <span class="pl-mini" id="pl-mini"></span>
+              <button class="tb-btn" type="button" id="pl-elegir"><i class="bi bi-image"></i> Elegir imagen…</button>
+            </div>
+            <input type="text" class="ov-text" id="pl-texto" maxlength="80" placeholder="Nombre del sitio" spellcheck="false" style="margin-top:6px" aria-label="Texto de la pantalla de carga">
+            <p class="hint" id="pl-fuente-info"></p>
+
+            <label class="t-lbl" for="pl-anim">Mientras carga</label>
+            <select class="ov-text" id="pl-anim">
+              <option value="pulso">Latido del logo</option>
+              <option value="giro">Círculo que gira</option>
+              <option value="barra">Barra de progreso</option>
+              <option value="puntos">Tres puntos</option>
+              <option value="ninguna">Quieto, sin animación</option>
+            </select>
+
+            <label class="t-lbl" for="pl-salida">Al terminar de cargar</label>
+            <select class="ov-text" id="pl-salida">
+              <option value="desvanecer">Se desvanece</option>
+              <option value="subir">Sube como una persiana</option>
+              <option value="cortina">Se abre como un telón</option>
+              <option value="zoom">Se aleja (zoom)</option>
+              <option value="ninguna">Desaparece sin efecto</option>
+            </select>
+
+            <label class="t-lbl" for="pl-fondo">Fondo</label>
+            <div class="ov-row">
+              <select class="ov-text" id="pl-fondo" style="flex:1">
+                <option value="claro">Fondo de la página</option>
+                <option value="osc">Color oscuro del sitio</option>
+                <option value="primario">Color principal del sitio</option>
+                <option value="personal">Otro color</option>
+              </select>
+              <input type="color" id="pl-color" aria-label="Color de fondo de la pantalla de carga">
+            </div>
+
+            <label class="t-lbl" for="pl-minimo">Tiempo mínimo en pantalla · <b id="pl-minimo-v">0,6 s</b></label>
+            <input type="range" id="pl-minimo" min="0" max="3000" step="100" style="width:100%;accent-color:#a08bff">
+
+            <label class="t-check" style="margin-top:10px">
+              <input type="checkbox" id="pl-unavez">
+              <span>Solo al entrar al sitio, no en cada página</span>
+            </label>
+            <button class="tb-btn" type="button" id="pl-probar" style="margin-top:12px;width:100%;justify-content:center"><i class="bi bi-play-circle"></i> Ver cómo queda</button>
+          </div>
+          <p class="hint">Se ve en la vista previa y en el sitio exportado. Desaparece cuando la página termina de cargar (como mucho a los 8 segundos) y respeta «reducir movimiento».</p>
+        </div>
+
         <div class="ov">
           <div class="ov-title"><i class="bi bi-diagram-3"></i> HTML semántico</div>
           <label class="t-check">
@@ -319,6 +380,7 @@
   <script src="js/publicar.js"></script>
   <script src="js/interacciones.js"></script>
   <script src="js/efectos.js"></script>
+  <script src="js/precarga.js"></script>
   <script src="js/variantes.js"></script>
 </body>
 </html>

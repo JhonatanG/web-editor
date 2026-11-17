@@ -469,3 +469,7 @@ textarea.f-in { resize: vertical; min-height: 70px; }
 
 /* ---------- Sin servidor: solo diseñar y exportar ---------- */
 .sin-servidor #variante-box, .sin-servidor #form-destino-box label:has(input[value=servicio]) { display: none !important; }
+
+/* Pantalla de carga (panel Sitio) */
+.pl-mini { flex: 1; height: 38px; border: 1px solid #3a4049; border-radius: 4px; background: #fff center/contain no-repeat; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #6b7380; overflow: hidden; }
+#pl-opciones[hidden] { display: none; }

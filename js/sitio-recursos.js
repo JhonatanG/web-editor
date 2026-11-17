@@ -139,6 +139,12 @@ iframe.hero-video[src*="youtube"].yt-ve{opacity:1}
 .brillo-3d{position:absolute;top:0;right:0;bottom:0;left:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s ease;background:radial-gradient(circle at var(--bx,50%) var(--by,50%),rgba(255,255,255,.35),transparent 60%)}
 .inclinando>.brillo-3d{opacity:1}
 @media (prefers-reduced-motion:reduce){.degradado-anim{animation:none}}
+/* Texto que se escribe letra por letra (js/escribir.js) */
+.js-reveal [data-escribir="si"]:not(.escribir-listo):not([data-contador="si"]){visibility:hidden;animation:escribir-seguro 0s 3s forwards}
+@keyframes escribir-seguro{to{visibility:visible}}
+[data-escribir="si"][data-escribir-cursor="si"]::after{content:"";display:inline-block;width:.07em;min-width:2px;height:1em;margin-left:.08em;background:currentColor;vertical-align:-.12em;animation:escribir-cursor 1s steps(1) infinite}
+@keyframes escribir-cursor{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){[data-escribir="si"][data-escribir-cursor="si"]::after{animation:none}}
 /* Estilo «Prisma»: menú en pestaña colgante y hero enmarcado con marca gigante */
 .nav-pestana{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:1030;max-width:calc(100% - 2rem);background:#000;border-radius:0 0 1.5rem 1.5rem;padding:.55rem 2rem}
 .nav-pestana-lista{display:flex;align-items:center;gap:clamp(.9rem,3.5vw,3.25rem);list-style:none;margin:0;padding:0;white-space:nowrap;overflow-x:auto;scrollbar-width:none}

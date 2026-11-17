@@ -105,6 +105,7 @@ function guardarJSON() {
   const proyecto = editor.getProjectData();
   proyecto.__tema = TEMA;
   proyecto.__publicacion = { ...PUB };
+  proyecto.__precarga = { ...PRE };
   proyecto.__formato = FORMATO_PROYECTO;
   descargar(new Blob([JSON.stringify(proyecto)], { type: 'application/json' }), 'proyecto-bootstrap.json');
   toast('Copia descargada: proyecto-bootstrap.json');
@@ -142,7 +143,7 @@ function cargarProyecto(proyecto, aviso = 'Proyecto abierto') {
   }
   leerPublicacion(proyecto);
   const anterior = !proyecto.__formato;
-  delete proyecto.__tema; delete proyecto.__publicacion; delete proyecto.__formato;
+  delete proyecto.__tema; delete proyecto.__publicacion; delete proyecto.__precarga; delete proyecto.__formato;
   editor.loadProjectData(proyecto);
   renderPages();
   pintarTemaUI();
