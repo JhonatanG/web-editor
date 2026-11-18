@@ -59,8 +59,10 @@ with sync_playwright() as p:
     check('el texto completo sigue en el HTML (buscadores)', 'Hola <span class="text-primary">mundo</span> bonito' in html)
     zp = ctx.new_page(); zp.set_viewport_size({'width': 1280, 'height': 800}); err = []
     zp.on('pageerror', lambda e: err.append(str(e)))
-    zp.goto((d / 'index.html').as_uri(), wait_until='domcontentloaded'); zp.wait_for_timeout(200)
+    zp.goto((d / 'index.html').as_uri(), wait_until='domcontentloaded'); zp.wait_for_timeout(100)
     q = "(id) => { const e = document.getElementById(id); return e.firstElementChild ? e.firstElementChild.textContent : e.textContent; }"
+    check('mientras la página carga, espera sin escribir', zp.evaluate(q, 't1') == '')
+    zp.wait_for_function("document.getElementById('t1').firstElementChild.textContent.length > 0", timeout=5000)
     medio = zp.evaluate(q, 't1')
     check('empieza a escribirse al aparecer', 0 < len(medio) < len('Hola mundo bonito') and 'Hola mundo bonito'.startswith(medio), medio)
     if CAPS: zp.screenshot(path=str(CAPS / 'zip-escribiendo.png'))

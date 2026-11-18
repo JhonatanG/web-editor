@@ -277,9 +277,26 @@ const RUNTIME_ESCRIBIR = `(function(){
     escribir();
   };
   var io=new IntersectionObserver(function(en){
-    en.forEach(function(x){ if(x.isIntersecting){ io.unobserve(x.target); animar(x.target.__escribir); } });
+    en.forEach(function(x){
+      if(!x.isIntersecting) return;
+      io.unobserve(x.target);
+      // Si además «aparece» con animación, se espera a que se empiece a ver
+      var o=x.target.__escribir, rev=x.target.closest('[data-reveal]:not([data-reveal=""])');
+      setTimeout(function(){ animar(o); },rev?450:0);
+    });
   },{threshold:0.5});
-  els.forEach(function(el){ var o=preparar(el); if(o){ el.__escribir=o; io.observe(el); } });
+  var preparados=[];
+  els.forEach(function(el){ var o=preparar(el); if(o){ el.__escribir=o; preparados.push(el); } });
+  // Empieza cuando la página ya se ve: cargada (o 2,5 s como mucho) y sin
+  // la pantalla de carga encima; si no, se escribiría sin que nadie lo vea
+  var h=d.documentElement, empezado=false;
+  var empezar=function(){
+    if(empezado) return;
+    if(h.classList.contains('pl-cargando')) return setTimeout(empezar,100);
+    empezado=true;
+    setTimeout(function(){ preparados.forEach(function(el){ io.observe(el); }); },d.getElementById('precarga')?700:300);
+  };
+  if(d.readyState==='complete') empezar(); else{ window.addEventListener('load',empezar); setTimeout(empezar,2500); }
 })();`;
 RUNTIMES_EXTRA.push({ archivo: 'escribir.js', codigo: RUNTIME_ESCRIBIR, usa: (html) => /data-escribir="si"/.test(html) });
 
